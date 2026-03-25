@@ -1,0 +1,330 @@
+{
+  "$schema": "./registry.schema.json",
+  "version": "0.1.0",
+  "lastUpdated": "2026-03-24",
+  "services": {
+    "anthropic": {
+      "id": "anthropic",
+      "name": "Anthropic (Claude)",
+      "packageNames": ["@anthropic-ai/sdk", "anthropic"],
+      "envPatterns": ["ANTHROPIC_API_KEY", "ANTHROPIC_ADMIN_KEY"],
+      "importPatterns": ["@anthropic-ai/sdk", "anthropic"],
+      "mentionKeywords": ["anthropic", "claude", "claude-3", "claude-4", "sonnet", "opus", "haiku"],
+      "billingModel": "token_usage",
+      "scalingShape": "linear",
+      "apiTier": "live",
+      "apiEndpoint": "https://api.anthropic.com/v1/organizations/usage",
+      "pricing": {
+        "formula": "input_tokens * input_rate + output_tokens * output_rate",
+        "unitName": "token"
+      },
+      "gotchas": [
+        "Admin API key required for billing data — standard API key only allows inference",
+        "Costs vary significantly by model: Haiku ~$0.25/MTok, Sonnet ~$3/MTok, Opus ~$15/MTok"
+      ],
+      "alternatives": ["openai", "google-gemini"],
+      "docsUrl": "https://docs.anthropic.com/en/api/usage",
+      "lastVerified": "2026-03-24"
+    },
+    "openai": {
+      "id": "openai",
+      "name": "OpenAI",
+      "packageNames": ["openai"],
+      "envPatterns": ["OPENAI_API_KEY", "OPENAI_ORG_ID"],
+      "importPatterns": ["openai"],
+      "mentionKeywords": ["openai", "gpt-4", "gpt-5", "chatgpt", "dall-e", "whisper"],
+      "billingModel": "token_usage",
+      "scalingShape": "linear",
+      "apiTier": "live",
+      "apiEndpoint": "https://api.openai.com/v1/organization/usage",
+      "pricing": {
+        "formula": "input_tokens * input_rate + output_tokens * output_rate",
+        "unitName": "token"
+      },
+      "gotchas": [
+        "Organization-level API key may be needed for usage data",
+        "Image generation (DALL-E) billed per image, not per token"
+      ],
+      "alternatives": ["anthropic", "google-gemini"],
+      "docsUrl": "https://platform.openai.com/docs/api-reference/usage",
+      "lastVerified": "2026-03-24"
+    },
+    "google-gemini": {
+      "id": "google-gemini",
+      "name": "Google Gemini",
+      "packageNames": ["@google/generative-ai", "@ai-sdk/google"],
+      "envPatterns": ["GEMINI_API_KEY", "GOOGLE_AI_API_KEY", "GOOGLE_GENERATIVE_AI_API_KEY"],
+      "importPatterns": ["@google/generative-ai", "@ai-sdk/google"],
+      "mentionKeywords": ["gemini", "google ai", "google-gemini"],
+      "billingModel": "token_usage",
+      "scalingShape": "linear",
+      "apiTier": "calc",
+      "pricing": {
+        "formula": "input_tokens * input_rate + output_tokens * output_rate",
+        "unitName": "token"
+      },
+      "gotchas": [
+        "Free tier available with rate limits",
+        "No standalone billing API for AI Studio — check Google Cloud Console"
+      ],
+      "alternatives": ["anthropic", "openai"],
+      "docsUrl": "https://ai.google.dev/pricing",
+      "lastVerified": "2026-03-24"
+    },
+    "voyage-ai": {
+      "id": "voyage-ai",
+      "name": "Voyage AI",
+      "packageNames": ["voyageai"],
+      "envPatterns": ["VOYAGE_API_KEY"],
+      "importPatterns": ["voyageai"],
+      "mentionKeywords": ["voyage", "voyage ai", "voyage-ai"],
+      "billingModel": "token_usage",
+      "scalingShape": "linear",
+      "apiTier": "calc",
+      "pricing": {
+        "formula": "tokens * rate_per_token",
+        "unitName": "token"
+      },
+      "gotchas": [
+        "Embedding-only service — cost scales with document corpus size"
+      ],
+      "alternatives": ["openai embeddings", "cohere embed"],
+      "docsUrl": "https://docs.voyageai.com/docs/pricing",
+      "lastVerified": "2026-03-24"
+    },
+    "vercel": {
+      "id": "vercel",
+      "name": "Vercel",
+      "packageNames": ["@vercel/analytics", "@vercel/functions", "@vercel/speed-insights", "@vercel/blob", "@vercel/edge-config"],
+      "envPatterns": ["VERCEL_TOKEN", "VERCEL_ORG_ID", "VERCEL_PROJECT_ID"],
+      "importPatterns": ["@vercel/"],
+      "mentionKeywords": ["vercel", "vercel deploy", "vercel functions"],
+      "billingModel": "compute",
+      "scalingShape": "tiered_jump",
+      "apiTier": "live",
+      "apiEndpoint": "https://api.vercel.com/v2/teams/{teamId}/billing",
+      "pricing": {
+        "formula": "base_plan + function_invocations + bandwidth + edge_requests",
+        "monthlyBase": 20
+      },
+      "gotchas": [
+        "Pro plan is $20/mo base, but overages on functions, bandwidth, and edge requests can spike",
+        "Edge Function pricing differs from Serverless Function pricing",
+        "Image optimization has separate per-image charges"
+      ],
+      "alternatives": ["netlify", "railway", "fly.io"],
+      "docsUrl": "https://vercel.com/docs/pricing",
+      "lastVerified": "2026-03-24"
+    },
+    "supabase": {
+      "id": "supabase",
+      "name": "Supabase",
+      "packageNames": ["@supabase/supabase-js", "@supabase/ssr"],
+      "envPatterns": ["SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "NEXT_PUBLIC_SUPABASE_ANON_KEY"],
+      "importPatterns": ["@supabase/supabase-js", "@supabase/ssr"],
+      "mentionKeywords": ["supabase"],
+      "billingModel": "tiered",
+      "scalingShape": "tiered_jump",
+      "apiTier": "live",
+      "apiEndpoint": "https://api.supabase.com/v1/projects/{ref}/usage",
+      "pricing": {
+        "formula": "plan_base + storage_overage + bandwidth_overage + function_invocations",
+        "monthlyBase": 25
+      },
+      "gotchas": [
+        "Storage charges accumulate even when idle",
+        "Database size can grow quickly with unoptimized queries or missing cleanup",
+        "Free tier pauses after 1 week of inactivity"
+      ],
+      "alternatives": ["neon", "planetscale", "firebase"],
+      "docsUrl": "https://supabase.com/pricing",
+      "lastVerified": "2026-03-24"
+    },
+    "stripe": {
+      "id": "stripe",
+      "name": "Stripe",
+      "packageNames": ["stripe", "@stripe/stripe-js", "@stripe/react-stripe-js"],
+      "envPatterns": ["STRIPE_SECRET_KEY", "STRIPE_PUBLISHABLE_KEY", "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY", "STRIPE_WEBHOOK_SECRET"],
+      "importPatterns": ["stripe"],
+      "mentionKeywords": ["stripe", "stripe payments", "stripe checkout"],
+      "billingModel": "percentage",
+      "scalingShape": "percentage",
+      "apiTier": "live",
+      "apiEndpoint": "https://api.stripe.com/v1/balance",
+      "pricing": {
+        "formula": "transaction_volume * 0.029 + transaction_count * 0.30",
+        "unitRate": 0.029,
+        "unitName": "transaction"
+      },
+      "gotchas": [
+        "2.9% + $0.30 per successful card charge — this is processing fees, not SaaS cost",
+        "International cards and currency conversion add extra fees",
+        "Disputes (chargebacks) cost $15 each regardless of outcome"
+      ],
+      "docsUrl": "https://stripe.com/pricing",
+      "lastVerified": "2026-03-24",
+      "pricingNotes": "Track as processing fees, not subscription cost"
+    },
+    "scrapfly": {
+      "id": "scrapfly",
+      "name": "Scrapfly",
+      "packageNames": ["scrapfly-sdk", "scrapfly"],
+      "envPatterns": ["SCRAPFLY_KEY", "SCRAPFLY_API_KEY"],
+      "importPatterns": ["scrapfly"],
+      "mentionKeywords": ["scrapfly"],
+      "billingModel": "credit_pool",
+      "scalingShape": "linear_burndown",
+      "apiTier": "live",
+      "apiEndpoint": "https://api.scrapfly.io/account",
+      "pricing": {
+        "formula": "credits_used * credit_usd_rate",
+        "unitRate": 0.00015,
+        "unitName": "credit"
+      },
+      "gotchas": [
+        "Anti-bot bypass options consume 5-25x base credits per request",
+        "JavaScript rendering adds extra credit cost",
+        "Credits reset monthly — unused credits do not roll over"
+      ],
+      "alternatives": ["cheerio", "playwright", "firecrawl"],
+      "docsUrl": "https://scrapfly.io/docs/scrape-api/billing",
+      "lastVerified": "2026-03-24"
+    },
+    "browserbase": {
+      "id": "browserbase",
+      "name": "Browserbase",
+      "packageNames": ["@browserbasehq/sdk", "@browserbasehq/stagehand"],
+      "envPatterns": ["BROWSERBASE_API_KEY", "BROWSERBASE_PROJECT_ID"],
+      "importPatterns": ["@browserbasehq/sdk", "@browserbasehq/stagehand"],
+      "mentionKeywords": ["browserbase", "stagehand"],
+      "billingModel": "per_unit",
+      "scalingShape": "linear",
+      "apiTier": "est",
+      "pricing": {
+        "formula": "sessions * per_session_rate",
+        "unitName": "session"
+      },
+      "gotchas": [
+        "Session duration affects cost — long-running browser sessions burn more",
+        "Concurrent session limits may cause queuing on lower plans"
+      ],
+      "alternatives": ["playwright", "puppeteer"],
+      "docsUrl": "https://docs.browserbase.com/guides/pricing",
+      "lastVerified": "2026-03-24"
+    },
+    "upstash": {
+      "id": "upstash",
+      "name": "Upstash Redis",
+      "packageNames": ["@upstash/redis", "@upstash/ratelimit", "@upstash/vector", "@upstash/qstash"],
+      "envPatterns": ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"],
+      "importPatterns": ["@upstash/redis", "@upstash/ratelimit"],
+      "mentionKeywords": ["upstash", "upstash redis"],
+      "billingModel": "per_unit",
+      "scalingShape": "linear",
+      "apiTier": "est",
+      "pricing": {
+        "formula": "commands * per_command_rate",
+        "unitRate": 0.000002,
+        "unitName": "command"
+      },
+      "gotchas": [
+        "Free tier includes 10K commands/day",
+        "Pay-as-you-go is $0.2 per 100K commands after free tier"
+      ],
+      "alternatives": ["redis (self-hosted)", "dragonfly"],
+      "docsUrl": "https://upstash.com/pricing",
+      "lastVerified": "2026-03-24"
+    },
+    "resend": {
+      "id": "resend",
+      "name": "Resend",
+      "packageNames": ["resend"],
+      "envPatterns": ["RESEND_API_KEY"],
+      "importPatterns": ["resend"],
+      "mentionKeywords": ["resend"],
+      "billingModel": "per_unit",
+      "scalingShape": "linear",
+      "apiTier": "est",
+      "pricing": {
+        "formula": "emails_sent * per_email_rate",
+        "unitName": "email"
+      },
+      "gotchas": [
+        "Free tier: 100 emails/day, 3000/month",
+        "Pro plan: $20/mo for 50K emails",
+        "Charges per email sent, not per API call"
+      ],
+      "alternatives": ["sendgrid", "postmark", "ses"],
+      "docsUrl": "https://resend.com/pricing",
+      "lastVerified": "2026-03-24"
+    },
+    "inngest": {
+      "id": "inngest",
+      "name": "Inngest",
+      "packageNames": ["inngest"],
+      "envPatterns": ["INNGEST_EVENT_KEY", "INNGEST_SIGNING_KEY"],
+      "importPatterns": ["inngest"],
+      "mentionKeywords": ["inngest"],
+      "billingModel": "tiered",
+      "scalingShape": "tiered_jump",
+      "apiTier": "calc",
+      "pricing": {
+        "formula": "plan_base + function_runs_overage",
+        "unitName": "function run"
+      },
+      "gotchas": [
+        "Free tier: 24hr event history, community support",
+        "Cost scales with function step count, not just invocation count"
+      ],
+      "alternatives": ["trigger.dev", "temporal"],
+      "docsUrl": "https://www.inngest.com/pricing",
+      "lastVerified": "2026-03-24"
+    },
+    "posthog": {
+      "id": "posthog",
+      "name": "PostHog",
+      "packageNames": ["posthog-js", "posthog-node"],
+      "envPatterns": ["POSTHOG_KEY", "NEXT_PUBLIC_POSTHOG_KEY", "POSTHOG_HOST", "NEXT_PUBLIC_POSTHOG_HOST"],
+      "importPatterns": ["posthog-js", "posthog-node"],
+      "mentionKeywords": ["posthog"],
+      "billingModel": "tiered",
+      "scalingShape": "tiered_jump",
+      "apiTier": "calc",
+      "pricing": {
+        "formula": "events beyond free tier * per_event_rate",
+        "unitName": "event"
+      },
+      "gotchas": [
+        "Free tier: 1M events/month — generous but easy to exceed with high-traffic apps",
+        "Session replay, feature flags, and surveys have separate pricing",
+        "Self-hosted option eliminates hosting cost but requires infrastructure"
+      ],
+      "alternatives": ["mixpanel", "amplitude", "plausible"],
+      "docsUrl": "https://posthog.com/pricing",
+      "lastVerified": "2026-03-24"
+    },
+    "aws": {
+      "id": "aws",
+      "name": "Amazon Web Services",
+      "packageNames": ["@aws-sdk/client-s3", "@aws-sdk/client-ecs", "@aws-sdk/client-ssm", "@aws-sdk/client-lambda", "aws-sdk"],
+      "envPatterns": ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_REGION", "AWS_SESSION_TOKEN"],
+      "importPatterns": ["@aws-sdk/"],
+      "mentionKeywords": ["aws", "amazon web services", "s3", "ecs", "lambda"],
+      "billingModel": "compute",
+      "scalingShape": "linear",
+      "apiTier": "blind",
+      "pricing": {
+        "formula": "Varies by service — S3, ECS, Lambda, etc. each have distinct pricing"
+      },
+      "gotchas": [
+        "AWS Cost Explorer API exists but requires IAM permissions and is itself billed",
+        "Data transfer costs are the most common surprise on AWS bills",
+        "ECS Fargate pricing is per-vCPU-hour and per-GB-hour"
+      ],
+      "alternatives": ["gcp", "azure", "fly.io"],
+      "docsUrl": "https://aws.amazon.com/pricing/",
+      "lastVerified": "2026-03-24",
+      "pricingNotes": "Complex multi-service billing — recommend tracking via AWS Cost Explorer directly"
+    }
+  }
+}

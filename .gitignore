@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.DS_Store
+
+# burnwatch local data (when testing on self)
+.burnwatch/data/cache/
+.burnwatch/data/snapshots/
+.burnwatch/data/events.jsonl
