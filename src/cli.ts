@@ -77,12 +77,7 @@ async function main(): Promise<void> {
 async function cmdInit(): Promise<void> {
   const projectRoot = process.cwd();
   const nonInteractive = flags.has("--non-interactive") || flags.has("--ni");
-
-  if (isInitialized(projectRoot)) {
-    console.log("✅ burnwatch is already initialized in this project.");
-    console.log(`   Config: ${projectConfigDir(projectRoot)}/config.json`);
-    return;
-  }
+  const alreadyInitialized = isInitialized(projectRoot);
 
   // Detect project name from package.json
   let projectName = path.basename(projectRoot);
@@ -96,18 +91,19 @@ async function cmdInit(): Promise<void> {
     // Use directory name
   }
 
-  // Create directories
+  // Create directories (idempotent)
   ensureProjectDirs(projectRoot);
 
-  // Run initial detection
+  // Run detection
   console.log("🔍 Scanning project for paid services...\n");
   const detected = detectServices(projectRoot);
 
-  // Create project config
+  // Load existing config or create new one
+  const existingConfig = alreadyInitialized ? readProjectConfig(projectRoot) : null;
   const config: ProjectConfig = {
-    projectName,
-    services: {},
-    createdAt: new Date().toISOString(),
+    projectName: existingConfig?.projectName ?? projectName,
+    services: existingConfig?.services ?? {},
+    createdAt: existingConfig?.createdAt ?? new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
 
@@ -118,13 +114,15 @@ async function cmdInit(): Promise<void> {
   } else {
     // Non-interactive mode — auto-register all detected services
     for (const det of detected) {
-      const tracked: TrackedService = {
-        serviceId: det.service.id,
-        detectedVia: det.sources,
-        hasApiKey: false,
-        firstDetected: new Date().toISOString(),
-      };
-      config.services[det.service.id] = tracked;
+      if (!config.services[det.service.id]) {
+        const tracked: TrackedService = {
+          serviceId: det.service.id,
+          detectedVia: det.sources,
+          hasApiKey: false,
+          firstDetected: new Date().toISOString(),
+        };
+        config.services[det.service.id] = tracked;
+      }
     }
 
     // Report findings
@@ -329,11 +327,9 @@ async function cmdStatus(): Promise<void> {
   if (blindCount > 0) {
     console.log(`⚠️  ${blindCount} service${blindCount > 1 ? "s" : ""} untracked:`);
     for (const snap of snapshots.filter((s) => s.tier === "blind")) {
-      console.log(
-        `   • ${snap.serviceId} — run 'burnwatch add ${snap.serviceId} --key YOUR_KEY --budget N'`,
-      );
+      console.log(`   • ${snap.serviceId}`);
     }
-    console.log("");
+    console.log(`\n   Run 'burnwatch init' to configure budgets and API keys.\n`);
   }
 }
 

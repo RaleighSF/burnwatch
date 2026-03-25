@@ -5,6 +5,14 @@ All notable changes to burnwatch will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.2] - 2026-03-24
+
+### Fixed
+
+- **Init is re-runnable**: `burnwatch init` no longer early-returns on already-initialized projects. Re-running init re-detects services and walks through interactive setup again, so users who initialized before v0.4.0 can configure budgets without manually running `burnwatch add` 14 times.
+- **Budget prompt fires for all services**: Budget prompt was gated inside the `requiresKey` block - services without API key requirements never got asked. Now every non-excluded service gets a budget prompt during interactive init.
+- **Untracked message is actionable**: Changed circular "run burnwatch status" message to "run burnwatch init to configure" so users know what to do next.
+
 ## [0.4.0] - 2026-03-24
 
 ### Added
@@ -43,5 +51,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Snapshot system for delta computation across sessions
 - Claude Code skills: `/spend` (on-demand brief), `/setup-burnwatch` (guided onboarding)
 
+[0.4.2]: https://github.com/RaleighSF/burnwatch/compare/v0.4.0...v0.4.2
 [0.4.0]: https://github.com/RaleighSF/burnwatch/compare/v0.1.0...v0.4.0
 [0.1.0]: https://github.com/RaleighSF/burnwatch/releases/tag/v0.1.0

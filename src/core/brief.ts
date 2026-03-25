@@ -148,7 +148,7 @@ export function buildBrief(
     alerts.push({
       serviceId: "_blind",
       type: "blind_service",
-      message: `${blindCount} service${blindCount > 1 ? "s" : ""} detected but untracked — run 'burnwatch status' to see`,
+      message: `${blindCount} service${blindCount > 1 ? "s" : ""} detected but untracked - run 'burnwatch init' to configure`,
       severity: "warning",
     });
   }
