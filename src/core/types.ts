@@ -6,13 +6,14 @@
  * EST   — Estimated from usage signals + pricing formula
  * BLIND — Detected in project, no tracking configured
  */
-export type ConfidenceTier = "live" | "calc" | "est" | "blind";
+export type ConfidenceTier = "live" | "calc" | "est" | "blind" | "excluded";
 
 export const CONFIDENCE_BADGES: Record<ConfidenceTier, string> = {
   live: "✅ LIVE",
   calc: "🟡 CALC",
   est: "🟠 EST",
   blind: "🔴 BLIND",
+  excluded: "⬚ SKIP",
 };
 
 /** How a service charges — determines tracking strategy. */
@@ -34,6 +35,23 @@ export type ScalingShape =
   | "percentage" // Proportional to revenue/volume
   | "fixed" // Flat monthly, no scaling
   | "unknown";
+
+/** A plan tier option for a service in the registry. */
+export interface PlanTier {
+  /** Human-readable plan name */
+  name: string;
+  /** Plan type: usage (pay-as-you-go), flat (fixed monthly), exclude (don't track) */
+  type: "usage" | "flat" | "exclude";
+  /** Monthly base cost for flat plans */
+  monthlyBase?: number;
+  /** Whether this plan requires an API key for tracking */
+  requiresKey?: boolean;
+  /** Whether this is the default/most common plan */
+  default?: boolean;
+}
+
+/** Risk category for service grouping in interactive init. */
+export type ServiceRiskCategory = "llm" | "usage" | "infra" | "flat";
 
 /** A service definition from the registry. */
 export interface ServiceDefinition {
@@ -78,6 +96,10 @@ export interface ServiceDefinition {
   lastVerified?: string;
   /** Notes about recent pricing changes */
   pricingNotes?: string;
+  /** Available plan tiers for interactive init */
+  plans?: PlanTier[];
+  /** Whether the plan can be auto-detected from an API key */
+  autoDetectPlan?: boolean;
 }
 
 /** A tracked service instance — a service definition + user config. */
@@ -96,6 +118,10 @@ export interface TrackedService {
   planCost?: number;
   /** When this service was first detected */
   firstDetected: string;
+  /** Explicitly excluded from tracking by user */
+  excluded?: boolean;
+  /** Plan name selected during interactive init */
+  planName?: string;
 }
 
 export type DetectionSource =
@@ -171,8 +197,30 @@ export interface SpendEvent {
     | "service_mentioned"
     | "spend_polled"
     | "budget_alert"
-    | "ledger_written";
+    | "ledger_written"
+    | "cost_impact";
   data: Record<string, unknown>;
+}
+
+/** A cost impact estimate for a file change. */
+export interface CostImpact {
+  serviceId: string;
+  serviceName: string;
+  filePath: string;
+  /** Number of SDK call sites found */
+  callCount: number;
+  /** Detected multipliers (loops, .map(), etc.) */
+  multipliers: string[];
+  /** Effective multiplier applied to call count */
+  multiplierFactor: number;
+  /** Estimated monthly invocations */
+  monthlyInvocations: number;
+  /** Low estimate monthly cost */
+  costLow: number;
+  /** High estimate monthly cost */
+  costHigh: number;
+  /** Gotcha-based cost range explanation */
+  rangeExplanation?: string;
 }
 
 /**

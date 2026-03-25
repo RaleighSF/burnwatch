@@ -1,6 +1,6 @@
 {
   "$schema": "./registry.schema.json",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "lastUpdated": "2026-03-24",
   "services": {
     "anthropic": {
@@ -18,6 +18,13 @@
         "formula": "input_tokens * input_rate + output_tokens * output_rate",
         "unitName": "token"
       },
+      "plans": [
+        { "name": "API Usage", "type": "usage", "requiresKey": true, "default": true },
+        { "name": "Max ($100/mo)", "type": "flat", "monthlyBase": 100 },
+        { "name": "Max ($200/mo)", "type": "flat", "monthlyBase": 200 },
+        { "name": "Pro ($20/mo)", "type": "flat", "monthlyBase": 20 },
+        { "name": "Don't track for this project", "type": "exclude" }
+      ],
       "gotchas": [
         "Admin API key required for billing data — standard API key only allows inference",
         "Costs vary significantly by model: Haiku ~$0.25/MTok, Sonnet ~$3/MTok, Opus ~$15/MTok"
@@ -41,6 +48,13 @@
         "formula": "input_tokens * input_rate + output_tokens * output_rate",
         "unitName": "token"
       },
+      "plans": [
+        { "name": "API Usage", "type": "usage", "requiresKey": true, "default": true },
+        { "name": "ChatGPT Plus ($20/mo)", "type": "flat", "monthlyBase": 20 },
+        { "name": "ChatGPT Pro ($200/mo)", "type": "flat", "monthlyBase": 200 },
+        { "name": "ChatGPT Team ($25/user/mo)", "type": "flat", "monthlyBase": 25 },
+        { "name": "Don't track for this project", "type": "exclude" }
+      ],
       "gotchas": [
         "Organization-level API key may be needed for usage data",
         "Image generation (DALL-E) billed per image, not per token"
@@ -63,6 +77,12 @@
         "formula": "input_tokens * input_rate + output_tokens * output_rate",
         "unitName": "token"
       },
+      "plans": [
+        { "name": "API Usage (pay-as-you-go)", "type": "usage", "requiresKey": false, "default": true },
+        { "name": "Free tier (rate-limited)", "type": "flat", "monthlyBase": 0 },
+        { "name": "Google One AI Premium ($20/mo)", "type": "flat", "monthlyBase": 20 },
+        { "name": "Don't track for this project", "type": "exclude" }
+      ],
       "gotchas": [
         "Free tier available with rate limits",
         "No standalone billing API for AI Studio — check Google Cloud Console"
@@ -85,6 +105,11 @@
         "formula": "tokens * rate_per_token",
         "unitName": "token"
       },
+      "plans": [
+        { "name": "API Usage (pay-as-you-go)", "type": "usage", "requiresKey": false, "default": true },
+        { "name": "Free tier (50M tokens)", "type": "flat", "monthlyBase": 0 },
+        { "name": "Don't track for this project", "type": "exclude" }
+      ],
       "gotchas": [
         "Embedding-only service — cost scales with document corpus size"
       ],
@@ -107,6 +132,12 @@
         "formula": "base_plan + function_invocations + bandwidth + edge_requests",
         "monthlyBase": 20
       },
+      "plans": [
+        { "name": "Hobby (Free)", "type": "flat", "monthlyBase": 0, "default": true },
+        { "name": "Pro ($20/mo)", "type": "flat", "monthlyBase": 20 },
+        { "name": "Enterprise (custom)", "type": "usage", "requiresKey": true },
+        { "name": "Don't track for this project", "type": "exclude" }
+      ],
       "gotchas": [
         "Pro plan is $20/mo base, but overages on functions, bandwidth, and edge requests can spike",
         "Edge Function pricing differs from Serverless Function pricing",
@@ -131,6 +162,13 @@
         "formula": "plan_base + storage_overage + bandwidth_overage + function_invocations",
         "monthlyBase": 25
       },
+      "plans": [
+        { "name": "Free", "type": "flat", "monthlyBase": 0, "default": true },
+        { "name": "Pro ($25/mo)", "type": "flat", "monthlyBase": 25 },
+        { "name": "Team ($599/mo)", "type": "flat", "monthlyBase": 599 },
+        { "name": "Enterprise (custom)", "type": "usage", "requiresKey": true },
+        { "name": "Don't track for this project", "type": "exclude" }
+      ],
       "gotchas": [
         "Storage charges accumulate even when idle",
         "Database size can grow quickly with unoptimized queries or missing cleanup",
@@ -156,6 +194,10 @@
         "unitRate": 0.029,
         "unitName": "transaction"
       },
+      "plans": [
+        { "name": "Standard (2.9% + 30¢)", "type": "usage", "requiresKey": true, "default": true },
+        { "name": "Don't track for this project", "type": "exclude" }
+      ],
       "gotchas": [
         "2.9% + $0.30 per successful card charge — this is processing fees, not SaaS cost",
         "International cards and currency conversion add extra fees",
@@ -181,6 +223,15 @@
         "unitRate": 0.00015,
         "unitName": "credit"
       },
+      "plans": [
+        { "name": "Discovery (Free, 1K credits)", "type": "flat", "monthlyBase": 0 },
+        { "name": "Starter ($30/mo, 200K credits)", "type": "flat", "monthlyBase": 30 },
+        { "name": "Scale ($80/mo, 1M credits)", "type": "flat", "monthlyBase": 80, "default": true },
+        { "name": "Business ($200/mo, 5M credits)", "type": "flat", "monthlyBase": 200 },
+        { "name": "Enterprise (custom)", "type": "usage", "requiresKey": true },
+        { "name": "Don't track for this project", "type": "exclude" }
+      ],
+      "autoDetectPlan": true,
       "gotchas": [
         "Anti-bot bypass options consume 5-25x base credits per request",
         "JavaScript rendering adds extra credit cost",
@@ -204,6 +255,13 @@
         "formula": "sessions * per_session_rate",
         "unitName": "session"
       },
+      "plans": [
+        { "name": "Hobby (Free, 100 sessions)", "type": "flat", "monthlyBase": 0, "default": true },
+        { "name": "Startup ($150/mo)", "type": "flat", "monthlyBase": 150 },
+        { "name": "Scale ($600/mo)", "type": "flat", "monthlyBase": 600 },
+        { "name": "Enterprise (custom)", "type": "usage", "requiresKey": false },
+        { "name": "Don't track for this project", "type": "exclude" }
+      ],
       "gotchas": [
         "Session duration affects cost — long-running browser sessions burn more",
         "Concurrent session limits may cause queuing on lower plans"
@@ -227,6 +285,12 @@
         "unitRate": 0.000002,
         "unitName": "command"
       },
+      "plans": [
+        { "name": "Free (10K commands/day)", "type": "flat", "monthlyBase": 0, "default": true },
+        { "name": "Pay-as-you-go", "type": "usage", "requiresKey": false },
+        { "name": "Pro ($280/mo)", "type": "flat", "monthlyBase": 280 },
+        { "name": "Don't track for this project", "type": "exclude" }
+      ],
       "gotchas": [
         "Free tier includes 10K commands/day",
         "Pay-as-you-go is $0.2 per 100K commands after free tier"
@@ -249,6 +313,12 @@
         "formula": "emails_sent * per_email_rate",
         "unitName": "email"
       },
+      "plans": [
+        { "name": "Free (100 emails/day)", "type": "flat", "monthlyBase": 0, "default": true },
+        { "name": "Pro ($20/mo, 50K emails)", "type": "flat", "monthlyBase": 20 },
+        { "name": "Enterprise ($400/mo)", "type": "flat", "monthlyBase": 400 },
+        { "name": "Don't track for this project", "type": "exclude" }
+      ],
       "gotchas": [
         "Free tier: 100 emails/day, 3000/month",
         "Pro plan: $20/mo for 50K emails",
@@ -272,6 +342,13 @@
         "formula": "plan_base + function_runs_overage",
         "unitName": "function run"
       },
+      "plans": [
+        { "name": "Free (5K runs/mo)", "type": "flat", "monthlyBase": 0, "default": true },
+        { "name": "Launch ($50/mo)", "type": "flat", "monthlyBase": 50 },
+        { "name": "Growth ($150/mo)", "type": "flat", "monthlyBase": 150 },
+        { "name": "Enterprise (custom)", "type": "usage", "requiresKey": false },
+        { "name": "Don't track for this project", "type": "exclude" }
+      ],
       "gotchas": [
         "Free tier: 24hr event history, community support",
         "Cost scales with function step count, not just invocation count"
@@ -294,6 +371,11 @@
         "formula": "events beyond free tier * per_event_rate",
         "unitName": "event"
       },
+      "plans": [
+        { "name": "Free (1M events/mo)", "type": "flat", "monthlyBase": 0, "default": true },
+        { "name": "Pay-as-you-go (usage-based)", "type": "usage", "requiresKey": false },
+        { "name": "Don't track for this project", "type": "exclude" }
+      ],
       "gotchas": [
         "Free tier: 1M events/month — generous but easy to exceed with high-traffic apps",
         "Session replay, feature flags, and surveys have separate pricing",
@@ -316,6 +398,12 @@
       "pricing": {
         "formula": "Varies by service — S3, ECS, Lambda, etc. each have distinct pricing"
       },
+      "plans": [
+        { "name": "Pay-as-you-go", "type": "usage", "requiresKey": false, "default": true },
+        { "name": "AWS Free Tier (12 months)", "type": "flat", "monthlyBase": 0 },
+        { "name": "Set custom budget estimate", "type": "usage", "requiresKey": false },
+        { "name": "Don't track for this project", "type": "exclude" }
+      ],
       "gotchas": [
         "AWS Cost Explorer API exists but requires IAM permissions and is itself billed",
         "Data transfer costs are the most common surprise on AWS bills",

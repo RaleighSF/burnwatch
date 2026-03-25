@@ -4,6 +4,8 @@ export default defineConfig({
   entry: {
     index: "src/index.ts",
     cli: "src/cli.ts",
+    "interactive-init": "src/interactive-init.ts",
+    "cost-impact": "src/cost-impact.ts",
     "hooks/on-session-start": "src/hooks/on-session-start.ts",
     "hooks/on-prompt": "src/hooks/on-prompt.ts",
     "hooks/on-file-change": "src/hooks/on-file-change.ts",

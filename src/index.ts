@@ -17,6 +17,9 @@ export type {
   SpendAlert,
   LedgerEntry,
   SpendEvent,
+  PlanTier,
+  ServiceRiskCategory,
+  CostImpact,
 } from "./core/types.js";
 
 export { CONFIDENCE_BADGES } from "./core/types.js";
@@ -59,3 +62,8 @@ export {
   ensureProjectDirs,
   isInitialized,
 } from "./core/config.js";
+
+export {
+  analyzeCostImpact,
+  formatCostImpactCard,
+} from "./cost-impact.js";

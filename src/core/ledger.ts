@@ -32,6 +32,16 @@ export function writeLedger(brief: SpendBrief, projectRoot?: string): void {
     );
   }
 
+  // Add projected impact row if session impacts exist in alerts
+  const impactAlert = brief.alerts.find(
+    (a) => a.serviceId === "_session_impact",
+  );
+  if (impactAlert) {
+    lines.push(
+      `| _projected impact_ | — | 📈 EST | — | ${impactAlert.message} |`,
+    );
+  }
+
   lines.push("");
   const totalStr = brief.totalIsEstimate
     ? `~$${brief.totalSpend.toFixed(2)}`

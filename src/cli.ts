@@ -28,9 +28,11 @@ import { pollAllServices } from "./services/index.js";
 import { buildSnapshot, buildBrief, formatBrief } from "./core/brief.js";
 import { writeLedger, saveSnapshot } from "./core/ledger.js";
 import { getService, getAllServices } from "./core/registry.js";
+import { runInteractiveInit } from "./interactive-init.js";
 
 const args = process.argv.slice(2);
 const command = args[0];
+const flags = new Set(args.slice(1));
 
 async function main(): Promise<void> {
   switch (command) {
@@ -74,6 +76,7 @@ async function main(): Promise<void> {
 
 async function cmdInit(): Promise<void> {
   const projectRoot = process.cwd();
+  const nonInteractive = flags.has("--non-interactive") || flags.has("--ni");
 
   if (isInitialized(projectRoot)) {
     console.log("✅ burnwatch is already initialized in this project.");
@@ -108,14 +111,43 @@ async function cmdInit(): Promise<void> {
     updatedAt: new Date().toISOString(),
   };
 
-  for (const det of detected) {
-    const tracked: TrackedService = {
-      serviceId: det.service.id,
-      detectedVia: det.sources,
-      hasApiKey: false,
-      firstDetected: new Date().toISOString(),
-    };
-    config.services[det.service.id] = tracked;
+  if (!nonInteractive && detected.length > 0 && process.stdin.isTTY) {
+    // Interactive mode — walk through each service with plan tiers
+    const result = await runInteractiveInit(detected);
+    config.services = result.services;
+  } else {
+    // Non-interactive mode — auto-register all detected services
+    for (const det of detected) {
+      const tracked: TrackedService = {
+        serviceId: det.service.id,
+        detectedVia: det.sources,
+        hasApiKey: false,
+        firstDetected: new Date().toISOString(),
+      };
+      config.services[det.service.id] = tracked;
+    }
+
+    // Report findings
+    if (detected.length === 0) {
+      console.log("   No paid services detected yet.");
+      console.log('   Services will be detected as they enter your project.\n');
+    } else {
+      console.log(`   Found ${detected.length} paid service${detected.length > 1 ? "s" : ""}:\n`);
+      for (const det of detected) {
+        const tierBadge =
+          det.service.apiTier === "live"
+            ? "✅ LIVE API available"
+            : det.service.apiTier === "calc"
+              ? "🟡 Flat-rate tracking"
+              : det.service.apiTier === "est"
+                ? "🟠 Estimate tracking"
+                : "🔴 Detection only";
+
+        console.log(`   • ${det.service.name} (${tierBadge})`);
+        console.log(`     Detected via: ${det.details.join(", ")}`);
+      }
+      console.log("");
+    }
   }
 
   writeProjectConfig(config, projectRoot);
@@ -134,40 +166,35 @@ async function cmdInit(): Promise<void> {
     "utf-8",
   );
 
-  // Report findings
-  if (detected.length === 0) {
-    console.log("   No paid services detected yet.");
-    console.log('   Services will be detected as they enter your project.\n');
-  } else {
-    console.log(`   Found ${detected.length} paid service${detected.length > 1 ? "s" : ""}:\n`);
-    for (const det of detected) {
-      const tierBadge =
-        det.service.apiTier === "live"
-          ? "✅ LIVE API available"
-          : det.service.apiTier === "calc"
-            ? "🟡 Flat-rate tracking"
-            : det.service.apiTier === "est"
-              ? "🟠 Estimate tracking"
-              : "🔴 Detection only";
-
-      console.log(`   • ${det.service.name} (${tierBadge})`);
-      console.log(`     Detected via: ${det.details.join(", ")}`);
-    }
-    console.log("");
-  }
-
   // Register Claude Code hooks
-  console.log("🔗 Registering Claude Code hooks...\n");
+  console.log("\n🔗 Registering Claude Code hooks...\n");
   registerHooks(projectRoot);
 
+  // Summary of excluded services
+  const excluded = Object.values(config.services).filter((s) => s.excluded);
+  const tracked = Object.values(config.services).filter((s) => !s.excluded);
+
   console.log("✅ burnwatch initialized!\n");
-  console.log("Next steps:");
-  console.log("  1. Add API keys for LIVE tracking:");
-  console.log("     burnwatch add anthropic --key $ANTHROPIC_ADMIN_KEY --budget 100");
-  console.log("  2. Set budgets for detected services:");
-  console.log("     burnwatch add scrapfly --key $SCRAPFLY_KEY --budget 50");
-  console.log("  3. Check your spend:");
-  console.log("     burnwatch status\n");
+
+  if (tracked.length > 0) {
+    console.log(`   Tracking ${tracked.length} service${tracked.length > 1 ? "s" : ""}`);
+    for (const svc of tracked) {
+      const planStr = svc.planName ? ` (${svc.planName})` : "";
+      const budgetStr = svc.budget !== undefined ? ` — $${svc.budget}/mo budget` : "";
+      console.log(`   • ${svc.serviceId}${planStr}${budgetStr}`);
+    }
+  }
+
+  if (excluded.length > 0) {
+    console.log(`\n   Excluded ${excluded.length} service${excluded.length > 1 ? "s" : ""}:`);
+    for (const svc of excluded) {
+      console.log(`   • ${svc.serviceId}`);
+    }
+  }
+
+  console.log("\nNext steps:");
+  console.log("  burnwatch status     — Check your spend");
+  console.log("  burnwatch add <svc>  — Configure additional services\n");
 }
 
 async function cmdAdd(): Promise<void> {
@@ -459,7 +486,8 @@ function cmdHelp(): void {
 burnwatch — Passive cost memory for vibe coding
 
 Usage:
-  burnwatch init                              Initialize in current project
+  burnwatch init                              Interactive setup — pick plans per service
+  burnwatch init --non-interactive            Auto-detect services, no prompts
   burnwatch setup                             Init + auto-configure all detected services
   burnwatch add <service> [options]           Register a service for tracking
   burnwatch status                            Show current spend brief
@@ -474,6 +502,7 @@ Options for 'add':
 
 Examples:
   burnwatch init
+  burnwatch init --non-interactive
   burnwatch add anthropic --key sk-ant-admin-xxx --budget 100
   burnwatch add scrapfly --key scp-xxx --budget 50
   burnwatch add posthog --plan-cost 0 --budget 0
