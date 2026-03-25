@@ -62,17 +62,23 @@ export async function pollService(
 
   // If service is in registry but we have no key and no plan cost
   if (definition) {
-    const tier: ConfidenceTier =
-      tracked.tierOverride ?? definition.apiTier === "live"
-        ? "blind" // Has a LIVE API but we don't have the key
-        : definition.apiTier;
+    let tier: ConfidenceTier;
+    if (tracked.tierOverride) {
+      tier = tracked.tierOverride;
+    } else if (definition.apiTier === "live") {
+      // Has a LIVE API but we don't have the key — mark as BLIND
+      tier = "blind";
+    } else {
+      // EST, CALC, or BLIND — use the registry's declared tier
+      tier = definition.apiTier;
+    }
 
     return {
       serviceId: tracked.serviceId,
       spend: 0,
-      isEstimate: true,
+      isEstimate: tier !== "live",
       tier,
-      error: "No API key or plan cost configured",
+      error: tier === "blind" ? "No API key configured" : undefined,
     };
   }
 
