@@ -17,6 +17,7 @@
   "files": [
     "dist",
     "registry.json",
+    "skills",
     "README.md",
     "LICENSE"
   ],

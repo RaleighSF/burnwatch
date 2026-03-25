@@ -49,6 +49,9 @@ async function main(): Promise<void> {
     case "reconcile":
       await cmdReconcile();
       break;
+    case "setup":
+      await cmdSetup();
+      break;
     case "help":
     case "--help":
     case "-h":
@@ -309,6 +312,90 @@ async function cmdStatus(): Promise<void> {
   }
 }
 
+async function cmdSetup(): Promise<void> {
+  const projectRoot = process.cwd();
+
+  // Step 1: Init if needed
+  if (!isInitialized(projectRoot)) {
+    await cmdInit();
+  }
+
+  const config = readProjectConfig(projectRoot)!;
+  const detected = Object.values(config.services);
+
+  if (detected.length === 0) {
+    console.log("No paid services detected. You're all set!");
+    return;
+  }
+
+  console.log("📋 Auto-configuring detected services...\n");
+
+  // Step 2: Check global config for existing API keys
+  const globalConfig = readGlobalConfig();
+
+  // Step 3: Auto-configure each service based on registry tier + available keys
+  const liveServices: string[] = [];
+  const calcServices: string[] = [];
+  const estServices: string[] = [];
+  const blindServices: string[] = [];
+
+  for (const tracked of detected) {
+    const definition = getService(tracked.serviceId, projectRoot);
+    if (!definition) continue;
+
+    const hasKey = !!globalConfig.services[tracked.serviceId]?.apiKey;
+
+    if (hasKey && definition.apiTier === "live") {
+      tracked.hasApiKey = true;
+      liveServices.push(`${definition.name}`);
+    } else if (definition.apiTier === "calc") {
+      calcServices.push(`${definition.name}`);
+    } else if (definition.apiTier === "est") {
+      estServices.push(`${definition.name}`);
+    } else {
+      blindServices.push(`${definition.name}`);
+    }
+  }
+
+  writeProjectConfig(config, projectRoot);
+
+  // Report
+  if (liveServices.length > 0) {
+    console.log(`  ✅ LIVE (real billing data): ${liveServices.join(", ")}`);
+  }
+  if (calcServices.length > 0) {
+    console.log(`  🟡 CALC (flat-rate tracking): ${calcServices.join(", ")}`);
+  }
+  if (estServices.length > 0) {
+    console.log(`  🟠 EST (estimated from usage): ${estServices.join(", ")}`);
+  }
+  if (blindServices.length > 0) {
+    console.log(`  🔴 BLIND (detected, need API key): ${blindServices.join(", ")}`);
+  }
+
+  console.log("");
+
+  if (blindServices.length > 0) {
+    console.log("To upgrade BLIND services to LIVE, add API keys:");
+    for (const tracked of detected) {
+      const definition = getService(tracked.serviceId, projectRoot);
+      if (definition?.apiTier === "live" && !tracked.hasApiKey) {
+        const envHint = definition.envPatterns[0] ?? "YOUR_KEY";
+        console.log(`  burnwatch add ${tracked.serviceId} --key $${envHint} --budget <N>`);
+      }
+    }
+    console.log("");
+  }
+
+  console.log("To set budgets for any service:");
+  console.log("  burnwatch add <service> --budget <monthly_amount>");
+  console.log("");
+  console.log("Or use /setup-burnwatch in Claude Code for guided setup with budget suggestions.\n");
+
+  // Show brief
+  await cmdStatus();
+}
+
 function cmdServices(): void {
   const services = getAllServices();
   console.log(`\n📋 Registry: ${services.length} services available\n`);
@@ -375,6 +462,7 @@ burnwatch — Passive cost memory for vibe coding
 
 Usage:
   burnwatch init                              Initialize in current project
+  burnwatch setup                             Init + auto-configure all detected services
   burnwatch add <service> [options]           Register a service for tracking
   burnwatch status                            Show current spend brief
   burnwatch services                          List all services in registry
