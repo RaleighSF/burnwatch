@@ -15,21 +15,21 @@
 burnwatch detects every paid service in your project, tracks what you're spending, and injects budget context directly into your AI coding sessions — so the agent knows what things cost before it recommends burning more money.
 
 ```
-╔══════════════════════════════════════════════════════════════╗
-║  BURNWATCH — hullscore — March 2026                          ║
-╠══════════════════════════════════════════════════════════════╣
-║  Service        Spend       Conf    Budget  Left             ║
-║  ──────────────────────────────────────────────────────────  ║
-║  Anthropic      $47.20      ✅ LIVE  $100    53%             ║
-║  Vercel         $23.00      ✅ LIVE  $50     54%             ║
-║  Scrapfly       $127.00     ✅ LIVE  $50     ⚠️ OVR          ║
-║  Browserbase    ~$63.00     🟠 EST   $75     16%             ║
-║  Supabase       $25.00      ✅ LIVE  $100    75%             ║
-║  PostHog        ~$49.00     🟡 CALC  $49     0%              ║
-╠══════════════════════════════════════════════════════════════╣
-║  TOTAL: ~$334.20   Untracked: 0 ✅   Est margin: ±$20       ║
-║  🚨  SCRAPFLY 254% OVER BUDGET — review before use          ║
-╚══════════════════════════════════════════════════════════════╝
+╔════════════════════════════════════════════════════════════╗
+║  BURNWATCH — your-app — March 2026                        ║
+╠════════════════════════════════════════════════════════════╣
+║  Service       Spend      Conf     Budget  Left           ║
+║  ────────────────────────────────────────────────────────  ║
+║  Anthropic     $47.20     * LIVE   $100    53%            ║
+║  Vercel        $23.00     * LIVE   $50     54%            ║
+║  Scrapfly      $127.00    * LIVE   $50     ! OVR          ║
+║  Browserbase   ~$63.00    ~ EST    $75     16%            ║
+║  Supabase      $25.00     * LIVE   $100    75%            ║
+║  PostHog       ~$49.00    ~ CALC   $49     0%             ║
+╠════════════════════════════════════════════════════════════╣
+║  TOTAL: ~$334.20   Untracked: 0   Est margin: +/-$20     ║
+║  !! SCRAPFLY 254% OVER BUDGET — review before use         ║
+╚════════════════════════════════════════════════════════════╝
 ```
 
 This brief appears automatically at the start of every [Claude Code](https://claude.ai/code) session. You don't open a dashboard. You don't remember to check anything. You just see what you're spending.
@@ -175,7 +175,7 @@ If burnwatch can't track a service accurately, it says so. The ledger always sho
 burnwatch writes `.burnwatch/spend-ledger.md` at the end of every session — human-readable, git-committable, designed to be read in 10 seconds:
 
 ```markdown
-# Burnwatch Ledger — hullscore
+# Burnwatch Ledger — your-app
 Last updated: 2026-03-24T14:32:11Z
 
 ## This Month (March 2026)
