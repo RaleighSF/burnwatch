@@ -112,17 +112,43 @@ async function cmdInit(): Promise<void> {
     const result = await runInteractiveInit(detected);
     config.services = result.services;
   } else {
-    // Non-interactive mode — auto-register all detected services
+    // Non-interactive mode — auto-register with default plans and budgets
+    const globalConfig = readGlobalConfig();
+
     for (const det of detected) {
-      if (!config.services[det.service.id]) {
-        const tracked: TrackedService = {
-          serviceId: det.service.id,
-          detectedVia: det.sources,
-          hasApiKey: false,
-          firstDetected: new Date().toISOString(),
-        };
-        config.services[det.service.id] = tracked;
+      const existing = config.services[det.service.id];
+      const service = det.service;
+      const plans = service.plans ?? [];
+      const defaultPlan = plans.find((p) => p.default) ?? plans[0];
+
+      // Skip services that already have budgets configured
+      if (existing?.budget !== undefined && existing.budget > 0) continue;
+
+      const tracked: TrackedService = {
+        serviceId: service.id,
+        detectedVia: existing?.detectedVia ?? det.sources,
+        hasApiKey: existing?.hasApiKey ?? false,
+        firstDetected: existing?.firstDetected ?? new Date().toISOString(),
+      };
+
+      if (defaultPlan && defaultPlan.type !== "exclude") {
+        tracked.planName = defaultPlan.name;
+
+        if (defaultPlan.type === "flat" && defaultPlan.monthlyBase !== undefined) {
+          tracked.planCost = defaultPlan.monthlyBase;
+          if (defaultPlan.monthlyBase > 0) {
+            tracked.budget = defaultPlan.monthlyBase;
+          }
+        }
       }
+
+      // Check for existing API key in global config
+      const existingKey = globalConfig.services[service.id]?.apiKey;
+      if (existingKey) {
+        tracked.hasApiKey = true;
+      }
+
+      config.services[service.id] = tracked;
     }
 
     // Report findings
@@ -131,20 +157,36 @@ async function cmdInit(): Promise<void> {
       console.log('   Services will be detected as they enter your project.\n');
     } else {
       console.log(`   Found ${detected.length} paid service${detected.length > 1 ? "s" : ""}:\n`);
+
+      const needBudget: string[] = [];
       for (const det of detected) {
+        const svc = config.services[det.service.id];
         const tierBadge =
           det.service.apiTier === "live"
-            ? "✅ LIVE API available"
+            ? svc?.hasApiKey ? "✅ LIVE" : "🔴 BLIND"
             : det.service.apiTier === "calc"
-              ? "🟡 Flat-rate tracking"
+              ? "🟡 CALC"
               : det.service.apiTier === "est"
-                ? "🟠 Estimate tracking"
-                : "🔴 Detection only";
+                ? "🟠 EST"
+                : "🔴 BLIND";
 
-        console.log(`   • ${det.service.name} (${tierBadge})`);
-        console.log(`     Detected via: ${det.details.join(", ")}`);
+        const planStr = svc?.planName ? ` (${svc.planName})` : "";
+        const budgetStr = svc?.budget ? ` - $${svc.budget}/mo budget` : "";
+        console.log(`   • ${det.service.name}${planStr} ${tierBadge}${budgetStr}`);
+
+        if (!svc?.budget) {
+          needBudget.push(det.service.id);
+        }
       }
       console.log("");
+
+      if (needBudget.length > 0) {
+        console.log(`   ${needBudget.length} service${needBudget.length > 1 ? "s" : ""} need budgets. Set them with:`);
+        for (const id of needBudget) {
+          console.log(`     burnwatch add ${id} --budget <AMOUNT>`);
+        }
+        console.log("");
+      }
     }
   }
 
