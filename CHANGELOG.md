@@ -5,11 +5,18 @@ All notable changes to burnwatch will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2] - 2026-03-24
+
+### Changed
+
+- **Zero manual commands after init**: Every detected service is now fully configured during init - plan, tier, and budget. No wall of `burnwatch add` commands. Registry now includes `suggestedBudget` for all usage-based plans (Anthropic $100, OpenAI $100, Stripe $50, Google Gemini $50, Voyage AI $20, AWS $50). Flat-rate services get budget = plan cost. Free tiers get $0.
+- **Interactive interview uses suggested budgets as defaults**: Usage plans show `Monthly budget [$100]: $` instead of a blank prompt. Press Enter to accept.
+
 ## [0.5.1] - 2026-03-24
 
 ### Fixed
 
-- **Init actually works now**: `process.stdin.isTTY` was `undefined` in Claude Code and many terminal environments, so the interactive interview never ran. Init now has three modes: (1) TTY detected = full interactive interview, (2) no TTY = smart auto-configure with defaults, (3) `--non-interactive` = minimal CI mode. The auto-configure path picks each service's default plan, detects API keys from env vars and global config, sets budget = plan cost for flat plans and $0 for usage-based, and only shows `burnwatch add` commands for the handful of usage-based services that genuinely need a human-set budget.
+- **Init actually works now**: `process.stdin.isTTY` was `undefined` in Claude Code and many terminal environments, so the interactive interview never ran. Init now has three modes: (1) TTY detected = full interactive interview, (2) no TTY = smart auto-configure with defaults, (3) `--non-interactive` = minimal CI mode.
 
 ## [0.5.0] - 2026-03-24
 
@@ -72,6 +79,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Snapshot system for delta computation across sessions
 - Claude Code skills: `/spend` (on-demand brief), `/setup-burnwatch` (guided onboarding)
 
+[0.5.2]: https://github.com/RaleighSF/burnwatch/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/RaleighSF/burnwatch/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/RaleighSF/burnwatch/compare/v0.4.3...v0.5.0
 [0.4.3]: https://github.com/RaleighSF/burnwatch/compare/v0.4.2...v0.4.3

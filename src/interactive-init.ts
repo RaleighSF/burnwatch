@@ -152,6 +152,8 @@ export function autoConfigureServices(
         if (defaultPlan.type === "flat" && defaultPlan.monthlyBase !== undefined) {
           tracked.planCost = defaultPlan.monthlyBase;
           tracked.budget = defaultPlan.monthlyBase;
+        } else if (defaultPlan.suggestedBudget !== undefined) {
+          tracked.budget = defaultPlan.suggestedBudget;
         }
       }
 
@@ -195,16 +197,6 @@ export function autoConfigureServices(
   console.log("  " + "-".repeat(48));
   console.log(`  ${trackedList.length} services configured | Total budget: $${totalBudget}/mo`);
   if (liveCount > 0) console.log(`  ${liveCount} with real-time billing (LIVE)`);
-
-  const needBudget = trackedList.filter(
-    (s) => s.budget === 0 && s.planCost === undefined,
-  );
-  if (needBudget.length > 0) {
-    console.log(`\n  ${needBudget.length} usage-based service${needBudget.length > 1 ? "s" : ""} need budgets:`);
-    for (const svc of needBudget) {
-      console.log(`    burnwatch add ${svc.serviceId} --budget <AMOUNT>`);
-    }
-  }
   console.log("");
 
   // Save discovered keys
@@ -361,28 +353,17 @@ export async function runInteractiveInit(
       }
 
       // --- Budget (always set, never skip) ---
-      const planCost = chosen.monthlyBase ?? 0;
+      const defaultBudget = chosen.monthlyBase ?? chosen.suggestedBudget ?? 0;
 
-      if (chosen.type === "usage" && planCost === 0) {
-        // Usage-based with no fixed cost - need a real number
-        const budgetAnswer = await ask(
-          rl,
-          `  Monthly budget: $`,
-        );
+      const budgetAnswer = await ask(
+        rl,
+        `  Monthly budget [$${defaultBudget}]: $`,
+      );
+      if (budgetAnswer) {
         const parsed = parseFloat(budgetAnswer);
-        tracked.budget = !isNaN(parsed) ? parsed : 0;
+        tracked.budget = !isNaN(parsed) ? parsed : defaultBudget;
       } else {
-        // Flat plan or usage with known base - default to plan cost
-        const budgetAnswer = await ask(
-          rl,
-          `  Monthly budget [$${planCost}]: $`,
-        );
-        if (budgetAnswer) {
-          const parsed = parseFloat(budgetAnswer);
-          tracked.budget = !isNaN(parsed) ? parsed : planCost;
-        } else {
-          tracked.budget = planCost;
-        }
+        tracked.budget = defaultBudget;
       }
 
       services[service.id] = tracked;

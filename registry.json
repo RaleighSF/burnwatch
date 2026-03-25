@@ -19,7 +19,7 @@
         "unitName": "token"
       },
       "plans": [
-        { "name": "API Usage", "type": "usage", "requiresKey": true, "default": true },
+        { "name": "API Usage", "type": "usage", "requiresKey": true, "default": true, "suggestedBudget": 100 },
         { "name": "Max ($100/mo)", "type": "flat", "monthlyBase": 100 },
         { "name": "Max ($200/mo)", "type": "flat", "monthlyBase": 200 },
         { "name": "Pro ($20/mo)", "type": "flat", "monthlyBase": 20 },
@@ -49,7 +49,7 @@
         "unitName": "token"
       },
       "plans": [
-        { "name": "API Usage", "type": "usage", "requiresKey": true, "default": true },
+        { "name": "API Usage", "type": "usage", "requiresKey": true, "default": true, "suggestedBudget": 100 },
         { "name": "ChatGPT Plus ($20/mo)", "type": "flat", "monthlyBase": 20 },
         { "name": "ChatGPT Pro ($200/mo)", "type": "flat", "monthlyBase": 200 },
         { "name": "ChatGPT Team ($25/user/mo)", "type": "flat", "monthlyBase": 25 },
@@ -78,7 +78,7 @@
         "unitName": "token"
       },
       "plans": [
-        { "name": "API Usage (pay-as-you-go)", "type": "usage", "requiresKey": false, "default": true },
+        { "name": "API Usage (pay-as-you-go)", "type": "usage", "requiresKey": false, "default": true, "suggestedBudget": 50 },
         { "name": "Free tier (rate-limited)", "type": "flat", "monthlyBase": 0 },
         { "name": "Google One AI Premium ($20/mo)", "type": "flat", "monthlyBase": 20 },
         { "name": "Don't track for this project", "type": "exclude" }
@@ -106,7 +106,7 @@
         "unitName": "token"
       },
       "plans": [
-        { "name": "API Usage (pay-as-you-go)", "type": "usage", "requiresKey": false, "default": true },
+        { "name": "API Usage (pay-as-you-go)", "type": "usage", "requiresKey": false, "default": true, "suggestedBudget": 20 },
         { "name": "Free tier (50M tokens)", "type": "flat", "monthlyBase": 0 },
         { "name": "Don't track for this project", "type": "exclude" }
       ],
@@ -195,7 +195,7 @@
         "unitName": "transaction"
       },
       "plans": [
-        { "name": "Standard (2.9% + 30¢)", "type": "usage", "requiresKey": true, "default": true },
+        { "name": "Standard (2.9% + 30¢)", "type": "usage", "requiresKey": true, "default": true, "suggestedBudget": 50 },
         { "name": "Don't track for this project", "type": "exclude" }
       ],
       "gotchas": [
@@ -287,7 +287,7 @@
       },
       "plans": [
         { "name": "Free (10K commands/day)", "type": "flat", "monthlyBase": 0, "default": true },
-        { "name": "Pay-as-you-go", "type": "usage", "requiresKey": false },
+        { "name": "Pay-as-you-go", "type": "usage", "requiresKey": false, "suggestedBudget": 20 },
         { "name": "Pro ($280/mo)", "type": "flat", "monthlyBase": 280 },
         { "name": "Don't track for this project", "type": "exclude" }
       ],
@@ -373,7 +373,7 @@
       },
       "plans": [
         { "name": "Free (1M events/mo)", "type": "flat", "monthlyBase": 0, "default": true },
-        { "name": "Pay-as-you-go (usage-based)", "type": "usage", "requiresKey": false },
+        { "name": "Pay-as-you-go (usage-based)", "type": "usage", "requiresKey": false, "suggestedBudget": 50 },
         { "name": "Don't track for this project", "type": "exclude" }
       ],
       "gotchas": [
@@ -399,7 +399,7 @@
         "formula": "Varies by service — S3, ECS, Lambda, etc. each have distinct pricing"
       },
       "plans": [
-        { "name": "Pay-as-you-go", "type": "usage", "requiresKey": false, "default": true },
+        { "name": "Pay-as-you-go", "type": "usage", "requiresKey": false, "default": true, "suggestedBudget": 50 },
         { "name": "AWS Free Tier (12 months)", "type": "flat", "monthlyBase": 0 },
         { "name": "Set custom budget estimate", "type": "usage", "requiresKey": false },
         { "name": "Don't track for this project", "type": "exclude" }

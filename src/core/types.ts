@@ -44,6 +44,8 @@ export interface PlanTier {
   type: "usage" | "flat" | "exclude";
   /** Monthly base cost for flat plans */
   monthlyBase?: number;
+  /** Suggested starting budget for usage plans (reasonable dev-stage default) */
+  suggestedBudget?: number;
   /** Whether this plan requires an API key for tracking */
   requiresKey?: boolean;
   /** Whether this is the default/most common plan */
