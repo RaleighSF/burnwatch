@@ -1,6 +1,6 @@
 {
   "name": "burnwatch",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Passive cost memory for vibe coding — detects paid services, tracks spend, injects budget context into your AI coding sessions.",
   "type": "module",
   "bin": {
@@ -20,7 +20,8 @@
     "skills",
     "README.md",
     "LICENSE",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "llms.txt"
   ],
   "scripts": {
     "build": "tsup && node -e \"const fs=require('fs');const f='dist/cli.js';const c=fs.readFileSync(f,'utf8');if(!c.startsWith('#!')){fs.writeFileSync(f,'#!/usr/bin/env node\\n'+c)}\"",
@@ -41,7 +42,16 @@
     "vibe-coding",
     "finops",
     "billing",
-    "usage-tracking"
+    "usage-tracking",
+    "api-cost",
+    "saas-management",
+    "spend-tracking",
+    "cost-monitoring",
+    "agentic",
+    "hooks",
+    "anthropic",
+    "openai",
+    "vercel"
   ],
   "author": "RaleighSF",
   "license": "MIT",
