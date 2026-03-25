@@ -182,13 +182,15 @@ export async function runInteractiveInit(
       };
 
       if (chosen.type === "flat" && chosen.monthlyBase !== undefined) {
-        // Auto-set budget to plan cost
-        tracked.budget = chosen.monthlyBase;
         tracked.planCost = chosen.monthlyBase;
+        // Auto-set budget to plan cost for paid flat plans
+        if (chosen.monthlyBase > 0) {
+          tracked.budget = chosen.monthlyBase;
+        }
       }
 
-      // If requires API key, ask for it
-      if (chosen.requiresKey) {
+      // If the service has a billing API, offer to provide a key
+      if (service.apiTier === "live" || chosen.requiresKey) {
         // Check if we already have a key in global config
         const existingKey = globalConfig.services[service.id]?.apiKey;
         if (existingKey) {
@@ -204,14 +206,13 @@ export async function runInteractiveInit(
               tracked.planName = planName;
             }
           }
-        } else {
+        } else if (chosen.requiresKey) {
           const keyAnswer = await ask(
             rl,
             `  Enter API key (or press Enter to skip): `,
           );
           if (keyAnswer) {
             tracked.hasApiKey = true;
-            // Save to global config
             if (!globalConfig.services[service.id]) {
               globalConfig.services[service.id] = {};
             }
@@ -228,18 +229,21 @@ export async function runInteractiveInit(
             }
           }
         }
+      }
 
-        // Ask for budget if not already set from plan
-        if (tracked.budget === undefined) {
-          const budgetAnswer = await ask(
-            rl,
-            `  Monthly budget in USD (or press Enter to skip): $`,
-          );
-          if (budgetAnswer) {
-            const budget = parseFloat(budgetAnswer);
-            if (!isNaN(budget)) {
-              tracked.budget = budget;
-            }
+      // Always ask for budget if not already set to a meaningful value
+      if (tracked.budget === undefined || tracked.budget === 0) {
+        const suggestion = chosen.monthlyBase && chosen.monthlyBase > 0
+          ? ` [${chosen.monthlyBase}]`
+          : "";
+        const budgetAnswer = await ask(
+          rl,
+          `  Monthly budget in USD${suggestion} (or press Enter to skip): $`,
+        );
+        if (budgetAnswer) {
+          const budget = parseFloat(budgetAnswer);
+          if (!isNaN(budget)) {
+            tracked.budget = budget;
           }
         }
       }
