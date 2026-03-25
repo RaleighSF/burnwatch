@@ -109,6 +109,111 @@ export interface InteractiveInitResult {
 }
 
 /**
+ * Auto-configure all services without prompts.
+ *
+ * Applies the same logic as the interactive interview but picks
+ * defaults automatically: default plan, env var keys, budget = plan cost.
+ * Used when stdin is not a TTY (e.g., Claude Code, piped input).
+ */
+export function autoConfigureServices(
+  detected: DetectionResult[],
+): InteractiveInitResult {
+  const services: Record<string, TrackedService> = {};
+  const groups = groupByRisk(detected);
+  const globalConfig = readGlobalConfig();
+
+  console.log(
+    `\n  Found ${detected.length} paid service${detected.length !== 1 ? "s" : ""}. Auto-configuring with defaults.\n`,
+  );
+  console.log("  Run 'burnwatch init' from your terminal for interactive setup.\n");
+
+  for (const category of RISK_ORDER) {
+    const group = groups.get(category)!;
+    if (group.length === 0) continue;
+
+    console.log(`  ${RISK_LABELS[category]}`);
+
+    for (const det of group) {
+      const service = det.service;
+      const plans = service.plans ?? [];
+      const defaultPlan = plans.find((p) => p.default) ?? plans[0];
+
+      const tracked: TrackedService = {
+        serviceId: service.id,
+        detectedVia: det.sources,
+        hasApiKey: false,
+        firstDetected: new Date().toISOString(),
+        budget: 0,
+      };
+
+      if (defaultPlan && defaultPlan.type !== "exclude") {
+        tracked.planName = defaultPlan.name;
+
+        if (defaultPlan.type === "flat" && defaultPlan.monthlyBase !== undefined) {
+          tracked.planCost = defaultPlan.monthlyBase;
+          tracked.budget = defaultPlan.monthlyBase;
+        }
+      }
+
+      // Check for existing API key in global config or environment
+      const existingKey = globalConfig.services[service.id]?.apiKey;
+      const envKey = findEnvKey(service);
+      let keySource = "";
+
+      if (existingKey) {
+        tracked.hasApiKey = true;
+        keySource = " (key: global config)";
+      } else if (envKey) {
+        tracked.hasApiKey = true;
+        if (!globalConfig.services[service.id]) {
+          globalConfig.services[service.id] = {};
+        }
+        globalConfig.services[service.id]!.apiKey = envKey;
+        keySource = ` (key: ${service.envPatterns[0]})`;
+      }
+
+      const tierLabel = tracked.hasApiKey
+        ? "LIVE"
+        : tracked.planCost !== undefined
+          ? "CALC"
+          : "BLIND";
+      const planStr = tracked.planName ? ` ${tracked.planName}` : "";
+      console.log(
+        `    ${service.name}:${planStr} | ${tierLabel} | $${tracked.budget}/mo${keySource}`,
+      );
+
+      services[service.id] = tracked;
+    }
+    console.log("");
+  }
+
+  // Summary
+  const trackedList = Object.values(services);
+  const liveCount = trackedList.filter((s) => s.hasApiKey).length;
+  const totalBudget = trackedList.reduce((sum, s) => sum + (s.budget ?? 0), 0);
+
+  console.log("  " + "-".repeat(48));
+  console.log(`  ${trackedList.length} services configured | Total budget: $${totalBudget}/mo`);
+  if (liveCount > 0) console.log(`  ${liveCount} with real-time billing (LIVE)`);
+
+  const needBudget = trackedList.filter(
+    (s) => s.budget === 0 && s.planCost === undefined,
+  );
+  if (needBudget.length > 0) {
+    console.log(`\n  ${needBudget.length} usage-based service${needBudget.length > 1 ? "s" : ""} need budgets:`);
+    for (const svc of needBudget) {
+      console.log(`    burnwatch add ${svc.serviceId} --budget <AMOUNT>`);
+    }
+  }
+  console.log("");
+
+  // Save discovered keys
+  writeGlobalConfig(globalConfig);
+
+  return { services };
+}
+
+/**
  * Run the interactive init flow.
  *
  * For each detected service:

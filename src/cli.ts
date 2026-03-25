@@ -28,7 +28,7 @@ import { pollAllServices } from "./services/index.js";
 import { buildSnapshot, buildBrief, formatBrief } from "./core/brief.js";
 import { writeLedger, saveSnapshot } from "./core/ledger.js";
 import { getService, getAllServices } from "./core/registry.js";
-import { runInteractiveInit } from "./interactive-init.js";
+import { runInteractiveInit, autoConfigureServices } from "./interactive-init.js";
 
 const args = process.argv.slice(2);
 const command = args[0];
@@ -107,101 +107,31 @@ async function cmdInit(): Promise<void> {
     updatedAt: new Date().toISOString(),
   };
 
-  if (!nonInteractive && detected.length > 0 && process.stdin.isTTY) {
-    // Interactive mode — walk through each service with plan tiers
+  if (detected.length === 0) {
+    console.log("   No paid services detected yet.");
+    console.log("   Services will be detected as they enter your project.\n");
+  } else if (nonInteractive) {
+    // Explicit --non-interactive: minimal auto-register (CI/scripts)
+    for (const det of detected) {
+      if (!config.services[det.service.id]) {
+        config.services[det.service.id] = {
+          serviceId: det.service.id,
+          detectedVia: det.sources,
+          hasApiKey: false,
+          firstDetected: new Date().toISOString(),
+          budget: 0,
+        };
+      }
+    }
+    console.log(`   Registered ${detected.length} services (non-interactive).\n`);
+  } else if (process.stdin.isTTY) {
+    // TTY: full interactive interview with readline prompts
     const result = await runInteractiveInit(detected);
     config.services = result.services;
   } else {
-    // Non-interactive mode — auto-register with default plans, always set budget
-    const globalConfig = readGlobalConfig();
-
-    for (const det of detected) {
-      const existing = config.services[det.service.id];
-      const service = det.service;
-      const plans = service.plans ?? [];
-      const defaultPlan = plans.find((p) => p.default) ?? plans[0];
-
-      // Skip services that already have budgets configured
-      if (existing?.budget !== undefined && existing.budget > 0) continue;
-
-      const tracked: TrackedService = {
-        serviceId: service.id,
-        detectedVia: existing?.detectedVia ?? det.sources,
-        hasApiKey: existing?.hasApiKey ?? false,
-        firstDetected: existing?.firstDetected ?? new Date().toISOString(),
-        budget: 0, // Always set — $0 is intentional, not missing
-      };
-
-      if (defaultPlan && defaultPlan.type !== "exclude") {
-        tracked.planName = defaultPlan.name;
-
-        if (defaultPlan.type === "flat" && defaultPlan.monthlyBase !== undefined) {
-          tracked.planCost = defaultPlan.monthlyBase;
-          tracked.budget = defaultPlan.monthlyBase; // $0 for free, plan cost for paid
-        }
-      }
-
-      // Check for existing API key in global config or environment
-      const existingKey = globalConfig.services[service.id]?.apiKey;
-      if (existingKey) {
-        tracked.hasApiKey = true;
-      } else {
-        // Check env vars
-        for (const pattern of service.envPatterns) {
-          if (process.env[pattern]) {
-            tracked.hasApiKey = true;
-            if (!globalConfig.services[service.id]) {
-              globalConfig.services[service.id] = {};
-            }
-            globalConfig.services[service.id]!.apiKey = process.env[pattern]!;
-            break;
-          }
-        }
-      }
-
-      config.services[service.id] = tracked;
-    }
-
-    // Save any discovered keys
-    writeGlobalConfig(globalConfig);
-
-    // Report findings
-    if (detected.length === 0) {
-      console.log("   No paid services detected yet.");
-      console.log('   Services will be detected as they enter your project.\n');
-    } else {
-      console.log(`   Found ${detected.length} paid service${detected.length > 1 ? "s" : ""}:\n`);
-
-      const needBudget: string[] = [];
-      for (const det of detected) {
-        const svc = config.services[det.service.id];
-        const tierBadge =
-          det.service.apiTier === "live"
-            ? svc?.hasApiKey ? "LIVE" : "BLIND"
-            : det.service.apiTier === "calc"
-              ? "CALC"
-              : det.service.apiTier === "est"
-                ? "EST"
-                : "BLIND";
-
-        const planStr = svc?.planName ? ` (${svc.planName})` : "";
-        const budgetStr = svc?.budget !== undefined ? ` $${svc.budget}/mo` : "";
-        console.log(`   ${det.service.name}${planStr} [${tierBadge}]${budgetStr}`);
-
-        if (svc?.budget === 0 && det.service.apiTier !== "calc") {
-          needBudget.push(det.service.id);
-        }
-      }
-      console.log("");
-
-      if (needBudget.length > 0) {
-        console.log(`   ${needBudget.length} service${needBudget.length > 1 ? "s" : ""} need budgets. Set them with:`);
-        for (const id of needBudget) {
-          console.log(`     burnwatch add ${id} --budget <AMOUNT>`);
-        }
-        console.log("");
-      }
-    }
+    // No TTY (Claude Code, piped): auto-configure with smart defaults
+    const result = autoConfigureServices(detected);
+    config.services = result.services;
   }
 
   writeProjectConfig(config, projectRoot);
