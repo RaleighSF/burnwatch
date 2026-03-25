@@ -234,13 +234,22 @@ async function cmdAdd(): Promise<void> {
     console.log(`🔐 API key saved to global config (never stored in project)`);
   }
 
-  const tierLabel = definition
-    ? apiKey
-      ? "✅ LIVE"
-      : planCost
-        ? "🟡 CALC"
-        : "🔴 BLIND"
-    : "🔴 BLIND";
+  let tierLabel: string;
+  if (!definition) {
+    tierLabel = "🔴 BLIND";
+  } else if (apiKey) {
+    tierLabel = "✅ LIVE";
+  } else if (planCost !== undefined) {
+    tierLabel = "🟡 CALC";
+  } else if (definition.apiTier === "est") {
+    tierLabel = "🟠 EST";
+  } else if (definition.apiTier === "calc") {
+    tierLabel = "🟡 CALC";
+  } else if (definition.apiTier === "live" && !apiKey) {
+    tierLabel = `🔴 BLIND (add --key for ✅ LIVE)`;
+  } else {
+    tierLabel = "🔴 BLIND";
+  }
 
   console.log(`\n✅ ${serviceId} configured:`);
   console.log(`   Tier: ${tierLabel}`);
