@@ -12,11 +12,11 @@
 
 <br>
 
-burnwatch detects every paid service in your project, tracks what you're spending, and injects budget context directly into your AI coding sessions — so the agent knows what things cost before it recommends burning more money.
+burnwatch detects every paid service in your project, tracks what you're spending, and injects budget context directly into your AI coding sessions - so the agent knows what things cost before it recommends burning more money.
 
 ```
 ╔══════════════════════════════════════════════════════════════
-║  BURNWATCH — your-app — March 2026
+║  BURNWATCH - your-app - March 2026
 ╠══════════════════════════════════════════════════════════════
 ║  Service        Spend       Conf      Budget  Left
 ║  ──────────────────────────────────────────────────────────
@@ -28,7 +28,7 @@ burnwatch detects every paid service in your project, tracks what you're spendin
 ║  PostHog        ~$49.00     🟡 CALC    $49     0%
 ╠══════════════════════════════════════════════════════════════
 ║  TOTAL: ~$334.20   Untracked: 0 ✅   Est margin: ±$20
-║  🚨 SCRAPFLY 254% OVER BUDGET — review before use
+║  🚨 SCRAPFLY 254% OVER BUDGET - review before use
 ╚══════════════════════════════════════════════════════════════
 ```
 
@@ -38,7 +38,7 @@ This brief appears automatically at the start of every [Claude Code](https://cla
 
 ## Why
 
-Agentic development lets you ship 10x faster. It also lets you burn through $400 in Scrapfly credits, rack up unexpected Browserbase bills, and discover PostHog overages three weeks after the code that caused them was written — by an agent, in a session you barely remember.
+Agentic development lets you ship 10x faster. It also lets you burn through $400 in Scrapfly credits, rack up unexpected Browserbase bills, and discover PostHog overages three weeks after the code that caused them was written - by an agent, in a session you barely remember.
 
 **78% of IT leaders experienced unexpected charges** tied to consumption-based or AI pricing in the past 12 months ([Zylo 2026 SaaS Management Index](https://zylo.com/research/saas-management-index/)).
 
@@ -56,7 +56,7 @@ npx burnwatch init
 
 That's it. burnwatch scans your project, detects paid services, creates a `.burnwatch/` directory, and registers Claude Code hooks. Next time you start a session, you see your spend.
 
-> **Requirements:** Node.js 18+ &mdash; Zero dependencies &mdash; Works with or without Claude Code
+> **Requirements:** Node.js 18+ · Zero dependencies · Works with or without Claude Code
 
 <br>
 
@@ -91,12 +91,12 @@ npx burnwatch init
 ### 2. Add API keys and budgets
 
 ```bash
-# LIVE tracking — real billing API data
+# LIVE tracking - real billing API data
 burnwatch add anthropic --key $ANTHROPIC_ADMIN_KEY --budget 100
 burnwatch add scrapfly --key $SCRAPFLY_KEY --budget 50
 burnwatch add vercel --token $VERCEL_TOKEN --budget 50
 
-# CALC tracking — flat-rate services
+# CALC tracking - flat-rate services
 burnwatch add posthog --plan-cost 0 --budget 0
 burnwatch add inngest --plan-cost 25 --budget 25
 
@@ -119,13 +119,13 @@ Start a Claude Code session. The spend brief appears automatically. When you men
 ```
 You: "Use Scrapfly to scrape the competitor pricing pages"
 
-[BURNWATCH] scrapfly — current period
+[BURNWATCH] scrapfly - current period
   Spend: $127.00  |  Budget: $50  |  ⚠️ 254% over
   Confidence: ✅ LIVE
   ⚠️ 254% of budget consumed
 ```
 
-Claude factors this into its response — it might suggest Cheerio instead, or warn you before proceeding.
+Claude factors this into its response - it might suggest Cheerio instead, or warn you before proceeding.
 
 When a new paid service enters your project (new dependency, new env var, new import), burnwatch alerts immediately:
 
@@ -138,7 +138,7 @@ When a new paid service enters your project (new dependency, new env var, new im
 
 ## How It Works
 
-burnwatch runs as [Claude Code hooks](https://docs.anthropic.com/en/docs/claude-code/hooks) — background scripts that fire on session lifecycle events. It never proxies your traffic. It never intercepts API calls. It watches the exhaust of your sessions silently, completely, and without interrupting the work.
+burnwatch runs as [Claude Code hooks](https://docs.anthropic.com/en/docs/claude-code/hooks) - background scripts that fire on session lifecycle events. It never proxies your traffic. It never intercepts API calls. It watches the exhaust of your sessions silently, completely, and without interrupting the work.
 
 ### Four Detection Surfaces
 
@@ -172,18 +172,18 @@ If burnwatch can't track a service accurately, it says so. The ledger always sho
 
 ### The Ledger
 
-burnwatch writes `.burnwatch/spend-ledger.md` at the end of every session — human-readable, git-committable, designed to be read in 10 seconds:
+burnwatch writes `.burnwatch/spend-ledger.md` at the end of every session - human-readable, git-committable, designed to be read in 10 seconds:
 
 ```markdown
-# Burnwatch Ledger — your-app
+# Burnwatch Ledger - your-app
 Last updated: 2026-03-24T14:32:11Z
 
 ## This Month (March 2026)
 | Service | Spend | Conf | Budget | Status |
 |---------|-------|------|--------|--------|
-| Anthropic | $47.20 | ✅ LIVE | $100 | 53% — healthy |
+| Anthropic | $47.20 | ✅ LIVE | $100 | 53% - healthy |
 | Scrapfly | $127.00 | ✅ LIVE | $50 | ⚠️ 254% over |
-| Vercel | $23.00 | ✅ LIVE | $50 | 54% — healthy |
+| Vercel | $23.00 | ✅ LIVE | $50 | 54% - healthy |
 
 ## TOTAL: ~$209.70 (±$2 estimated margin)
 ## Untracked services: 0
@@ -216,7 +216,7 @@ Last updated: 2026-03-24T14:32:11Z
 
 ## How the Agent Changes Behavior
 
-The real power isn't showing _you_ what you spent — it's telling _the agent_ what everything costs, in context, so cost becomes a factor in every recommendation.
+The real power isn't showing _you_ what you spent - it's telling _the agent_ what everything costs, in context, so cost becomes a factor in every recommendation.
 
 When Claude sees `Scrapfly: $127 / $50 budget, 254% over` in its context, it:
 
@@ -281,7 +281,7 @@ burnwatch doesn't need to run in every session. It takes snapshots when present 
 burnwatch reconcile
 ```
 
-Re-scans your project for services introduced in sessions where burnwatch wasn't active. For billing APIs that expose cumulative usage (like Scrapfly's credit counter), it computes the delta between snapshots — attributing spend across the gap.
+Re-scans your project for services introduced in sessions where burnwatch wasn't active. For billing APIs that expose cumulative usage (like Scrapfly's credit counter), it computes the delta between snapshots - attributing spend across the gap.
 
 <br>
 
@@ -304,7 +304,7 @@ Re-scans your project for services introduced in sessions where burnwatch wasn't
 }
 ```
 
-The `gotchas` and `alternatives` fields aren't just metadata — the agent reads them and uses them to make better recommendations. Every PR that adds a service makes burnwatch smarter for every user.
+The `gotchas` and `alternatives` fields aren't just metadata - the agent reads them and uses them to make better recommendations. Every PR that adds a service makes burnwatch smarter for every user.
 
 <br>
 
