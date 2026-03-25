@@ -112,7 +112,7 @@ async function cmdInit(): Promise<void> {
     const result = await runInteractiveInit(detected);
     config.services = result.services;
   } else {
-    // Non-interactive mode — auto-register with default plans and budgets
+    // Non-interactive mode — auto-register with default plans, always set budget
     const globalConfig = readGlobalConfig();
 
     for (const det of detected) {
@@ -129,6 +129,7 @@ async function cmdInit(): Promise<void> {
         detectedVia: existing?.detectedVia ?? det.sources,
         hasApiKey: existing?.hasApiKey ?? false,
         firstDetected: existing?.firstDetected ?? new Date().toISOString(),
+        budget: 0, // Always set — $0 is intentional, not missing
       };
 
       if (defaultPlan && defaultPlan.type !== "exclude") {
@@ -136,20 +137,33 @@ async function cmdInit(): Promise<void> {
 
         if (defaultPlan.type === "flat" && defaultPlan.monthlyBase !== undefined) {
           tracked.planCost = defaultPlan.monthlyBase;
-          if (defaultPlan.monthlyBase > 0) {
-            tracked.budget = defaultPlan.monthlyBase;
+          tracked.budget = defaultPlan.monthlyBase; // $0 for free, plan cost for paid
+        }
+      }
+
+      // Check for existing API key in global config or environment
+      const existingKey = globalConfig.services[service.id]?.apiKey;
+      if (existingKey) {
+        tracked.hasApiKey = true;
+      } else {
+        // Check env vars
+        for (const pattern of service.envPatterns) {
+          if (process.env[pattern]) {
+            tracked.hasApiKey = true;
+            if (!globalConfig.services[service.id]) {
+              globalConfig.services[service.id] = {};
+            }
+            globalConfig.services[service.id]!.apiKey = process.env[pattern]!;
+            break;
           }
         }
       }
 
-      // Check for existing API key in global config
-      const existingKey = globalConfig.services[service.id]?.apiKey;
-      if (existingKey) {
-        tracked.hasApiKey = true;
-      }
-
       config.services[service.id] = tracked;
     }
+
+    // Save any discovered keys
+    writeGlobalConfig(globalConfig);
 
     // Report findings
     if (detected.length === 0) {
@@ -163,18 +177,18 @@ async function cmdInit(): Promise<void> {
         const svc = config.services[det.service.id];
         const tierBadge =
           det.service.apiTier === "live"
-            ? svc?.hasApiKey ? "✅ LIVE" : "🔴 BLIND"
+            ? svc?.hasApiKey ? "LIVE" : "BLIND"
             : det.service.apiTier === "calc"
-              ? "🟡 CALC"
+              ? "CALC"
               : det.service.apiTier === "est"
-                ? "🟠 EST"
-                : "🔴 BLIND";
+                ? "EST"
+                : "BLIND";
 
         const planStr = svc?.planName ? ` (${svc.planName})` : "";
-        const budgetStr = svc?.budget ? ` - $${svc.budget}/mo budget` : "";
-        console.log(`   • ${det.service.name}${planStr} ${tierBadge}${budgetStr}`);
+        const budgetStr = svc?.budget !== undefined ? ` $${svc.budget}/mo` : "";
+        console.log(`   ${det.service.name}${planStr} [${tierBadge}]${budgetStr}`);
 
-        if (!svc?.budget) {
+        if (svc?.budget === 0 && det.service.apiTier !== "calc") {
           needBudget.push(det.service.id);
         }
       }
@@ -210,31 +224,11 @@ async function cmdInit(): Promise<void> {
   console.log("\n🔗 Registering Claude Code hooks...\n");
   registerHooks(projectRoot);
 
-  // Summary of excluded services
-  const excluded = Object.values(config.services).filter((s) => s.excluded);
-  const tracked = Object.values(config.services).filter((s) => !s.excluded);
-
-  console.log("✅ burnwatch initialized!\n");
-
-  if (tracked.length > 0) {
-    console.log(`   Tracking ${tracked.length} service${tracked.length > 1 ? "s" : ""}`);
-    for (const svc of tracked) {
-      const planStr = svc.planName ? ` (${svc.planName})` : "";
-      const budgetStr = svc.budget !== undefined ? ` — $${svc.budget}/mo budget` : "";
-      console.log(`   • ${svc.serviceId}${planStr}${budgetStr}`);
-    }
-  }
-
-  if (excluded.length > 0) {
-    console.log(`\n   Excluded ${excluded.length} service${excluded.length > 1 ? "s" : ""}:`);
-    for (const svc of excluded) {
-      console.log(`   • ${svc.serviceId}`);
-    }
-  }
-
-  console.log("\nNext steps:");
-  console.log("  burnwatch status     — Check your spend");
-  console.log("  burnwatch add <svc>  — Configure additional services\n");
+  console.log("\nburnwatch initialized.\n");
+  console.log("Next steps:");
+  console.log("  burnwatch status        Show current spend");
+  console.log("  burnwatch add <svc>     Update a service's budget or API key");
+  console.log("  burnwatch init          Re-run this setup anytime\n");
 }
 
 async function cmdAdd(): Promise<void> {

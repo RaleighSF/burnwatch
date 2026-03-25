@@ -1,8 +1,10 @@
 /**
  * Interactive init flow for burnwatch.
  *
- * Groups detected services by risk category, presents plan tiers,
- * and collects user choices via Node readline.
+ * Conducts a per-service interview: detects what it can automatically
+ * (existing API keys, env vars), asks for plan selection, collects
+ * API keys for LIVE tracking, and ensures every service exits with
+ * a budget. No skipping.
  */
 
 import * as readline from "node:readline";
@@ -20,10 +22,20 @@ import { fetchJson } from "./services/base.js";
 const RISK_ORDER: ServiceRiskCategory[] = ["llm", "usage", "infra", "flat"];
 
 const RISK_LABELS: Record<ServiceRiskCategory, string> = {
-  llm: "🤖 LLM / AI Services (highest variable cost)",
-  usage: "📊 Usage-Based Services",
-  infra: "🏗️  Infrastructure & Compute",
-  flat: "📦 Flat-Rate / Free Tier Services",
+  llm: "LLM / AI Services (highest variable cost)",
+  usage: "Usage-Based Services",
+  infra: "Infrastructure & Compute",
+  flat: "Flat-Rate / Free Tier Services",
+};
+
+/** Where to find API keys for LIVE-capable services */
+const API_KEY_HINTS: Record<string, string> = {
+  anthropic: "Admin key: console.anthropic.com -> Settings -> Admin API Keys",
+  openai: "Org key: platform.openai.com -> Settings -> API Keys",
+  vercel: "Token: vercel.com/account/tokens",
+  supabase: "Service role key: supabase.com/dashboard -> Settings -> API",
+  stripe: "Secret key: dashboard.stripe.com -> Developers -> API Keys",
+  scrapfly: "API key: scrapfly.io/dashboard",
 };
 
 /** Map service IDs to risk categories */
@@ -83,13 +95,26 @@ async function autoDetectScrapflyPlan(
   return null;
 }
 
+/** Scan environment for API keys matching service env patterns */
+function findEnvKey(service: ServiceDefinition): string | undefined {
+  for (const pattern of service.envPatterns) {
+    const val = process.env[pattern];
+    if (val && val.length > 0) return val;
+  }
+  return undefined;
+}
+
 export interface InteractiveInitResult {
   services: Record<string, TrackedService>;
 }
 
 /**
  * Run the interactive init flow.
- * Shows detected services grouped by risk, lets user pick plans.
+ *
+ * For each detected service:
+ * 1. Ask which plan they're on
+ * 2. If LIVE-capable, check for existing key or ask for one
+ * 3. Set budget (defaults to plan cost, $0 for free - never skipped)
  */
 export async function runInteractiveInit(
   detected: DetectionResult[],
@@ -104,15 +129,15 @@ export async function runInteractiveInit(
   const globalConfig = readGlobalConfig();
 
   console.log(
-    "\n📋 Let's configure each detected service. Services are grouped by cost risk.\n",
+    `\n  Found ${detected.length} paid service${detected.length !== 1 ? "s" : ""}. Let's configure each one.\n`,
   );
 
   for (const category of RISK_ORDER) {
     const group = groups.get(category)!;
     if (group.length === 0) continue;
 
-    console.log(`\n${RISK_LABELS[category]}`);
-    console.log("─".repeat(50));
+    console.log(`\n  ${RISK_LABELS[category]}`);
+    console.log("  " + "-".repeat(48));
 
     for (const det of group) {
       const service = det.service;
@@ -122,29 +147,30 @@ export async function runInteractiveInit(
       console.log(`  Detected via: ${det.details.join(", ")}`);
 
       if (!plans || plans.length === 0) {
-        // No plans defined — fall back to basic tracking
+        // No plans defined - basic tracking with $0 budget
         services[service.id] = {
           serviceId: service.id,
           detectedVia: det.sources,
           hasApiKey: false,
           firstDetected: new Date().toISOString(),
+          budget: 0,
         };
-        console.log("  → Auto-configured (no plan tiers available)");
+        console.log("  -> Configured (no plan tiers in registry, budget: $0)");
         continue;
       }
 
-      // Show plan options
+      // --- Plan selection ---
       const defaultIndex = plans.findIndex((p) => p.default);
       console.log("");
       for (let i = 0; i < plans.length; i++) {
         const plan = plans[i]!;
-        const marker = i === defaultIndex ? " (recommended)" : "";
+        const marker = i === defaultIndex ? " *" : "";
         const costStr =
           plan.type === "exclude"
             ? ""
             : plan.monthlyBase !== undefined
-              ? ` — $${plan.monthlyBase}/mo`
-              : " — variable";
+              ? ` - $${plan.monthlyBase}/mo`
+              : " - variable";
         console.log(`    ${i + 1}) ${plan.name}${costStr}${marker}`);
       }
 
@@ -152,7 +178,7 @@ export async function runInteractiveInit(
         defaultIndex >= 0 ? String(defaultIndex + 1) : "1";
       const answer = await ask(
         rl,
-        `  Choose [${defaultChoice}]: `,
+        `  Which plan? [${defaultChoice}]: `,
       );
 
       const choiceIndex = (answer === "" ? parseInt(defaultChoice) : parseInt(answer)) - 1;
@@ -160,7 +186,6 @@ export async function runInteractiveInit(
         plans[choiceIndex] ?? plans[defaultIndex >= 0 ? defaultIndex : 0]!;
 
       if (chosen.type === "exclude") {
-        // Explicitly excluded
         services[service.id] = {
           serviceId: service.id,
           detectedVia: det.sources,
@@ -169,7 +194,7 @@ export async function runInteractiveInit(
           excluded: true,
           planName: chosen.name,
         };
-        console.log(`  → ${service.name}: excluded from tracking`);
+        console.log(`  -> ${service.name}: excluded`);
         continue;
       }
 
@@ -183,33 +208,29 @@ export async function runInteractiveInit(
 
       if (chosen.type === "flat" && chosen.monthlyBase !== undefined) {
         tracked.planCost = chosen.monthlyBase;
-        // Auto-set budget to plan cost for paid flat plans
-        if (chosen.monthlyBase > 0) {
-          tracked.budget = chosen.monthlyBase;
-        }
       }
 
-      // If the service has a billing API, offer to provide a key
-      if (service.apiTier === "live" || chosen.requiresKey) {
-        // Check if we already have a key in global config
+      // --- API key (LIVE-capable services) ---
+      if (service.apiTier === "live") {
         const existingKey = globalConfig.services[service.id]?.apiKey;
-        if (existingKey) {
-          console.log(`  🔐 Using existing API key from global config`);
-          tracked.hasApiKey = true;
+        const envKey = findEnvKey(service);
 
-          // Auto-detect plan for Scrapfly
-          if (service.autoDetectPlan && service.id === "scrapfly") {
-            console.log("  🔍 Auto-detecting plan from API...");
-            const planName = await autoDetectScrapflyPlan(existingKey);
-            if (planName) {
-              console.log(`  → Detected plan: ${planName}`);
-              tracked.planName = planName;
-            }
+        if (existingKey) {
+          console.log(`  API key: found in global config`);
+          tracked.hasApiKey = true;
+        } else if (envKey) {
+          console.log(`  API key: found in environment (${service.envPatterns[0]})`);
+          tracked.hasApiKey = true;
+          if (!globalConfig.services[service.id]) {
+            globalConfig.services[service.id] = {};
           }
-        } else if (chosen.requiresKey) {
+          globalConfig.services[service.id]!.apiKey = envKey;
+        } else {
+          const hint = API_KEY_HINTS[service.id];
+          if (hint) console.log(`  ${hint}`);
           const keyAnswer = await ask(
             rl,
-            `  Enter API key (or press Enter to skip): `,
+            `  API key for real-time tracking (Enter to skip): `,
           );
           if (keyAnswer) {
             tracked.hasApiKey = true;
@@ -217,50 +238,74 @@ export async function runInteractiveInit(
               globalConfig.services[service.id] = {};
             }
             globalConfig.services[service.id]!.apiKey = keyAnswer;
+          }
+        }
 
-            // Auto-detect plan for Scrapfly
-            if (service.autoDetectPlan && service.id === "scrapfly") {
-              console.log("  🔍 Auto-detecting plan from API...");
-              const planName = await autoDetectScrapflyPlan(keyAnswer);
-              if (planName) {
-                console.log(`  → Detected plan: ${planName}`);
-                tracked.planName = planName;
-              }
+        // Auto-detect plan for Scrapfly
+        if (service.autoDetectPlan && service.id === "scrapfly" && tracked.hasApiKey) {
+          const key = globalConfig.services[service.id]?.apiKey;
+          if (key) {
+            console.log("  Detecting plan from API...");
+            const planName = await autoDetectScrapflyPlan(key);
+            if (planName) {
+              console.log(`  -> Detected plan: ${planName}`);
+              tracked.planName = planName;
             }
           }
         }
       }
 
-      // Always ask for budget if not already set to a meaningful value
-      if (tracked.budget === undefined || tracked.budget === 0) {
-        const suggestion = chosen.monthlyBase && chosen.monthlyBase > 0
-          ? ` [${chosen.monthlyBase}]`
-          : "";
+      // --- Budget (always set, never skip) ---
+      const planCost = chosen.monthlyBase ?? 0;
+
+      if (chosen.type === "usage" && planCost === 0) {
+        // Usage-based with no fixed cost - need a real number
         const budgetAnswer = await ask(
           rl,
-          `  Monthly budget in USD${suggestion} (or press Enter to skip): $`,
+          `  Monthly budget: $`,
+        );
+        const parsed = parseFloat(budgetAnswer);
+        tracked.budget = !isNaN(parsed) ? parsed : 0;
+      } else {
+        // Flat plan or usage with known base - default to plan cost
+        const budgetAnswer = await ask(
+          rl,
+          `  Monthly budget [$${planCost}]: $`,
         );
         if (budgetAnswer) {
-          const budget = parseFloat(budgetAnswer);
-          if (!isNaN(budget)) {
-            tracked.budget = budget;
-          }
+          const parsed = parseFloat(budgetAnswer);
+          tracked.budget = !isNaN(parsed) ? parsed : planCost;
+        } else {
+          tracked.budget = planCost;
         }
       }
 
       services[service.id] = tracked;
 
       const tierLabel = tracked.hasApiKey
-        ? "✅ LIVE"
+        ? "LIVE"
         : tracked.planCost !== undefined
-          ? "🟡 CALC"
-          : "🔴 BLIND";
-      const budgetStr = tracked.budget !== undefined ? ` | Budget: $${tracked.budget}/mo` : "";
+          ? "CALC"
+          : "BLIND";
       console.log(
-        `  → ${service.name}: ${chosen.name} (${tierLabel}${budgetStr})`,
+        `  -> ${service.name}: ${tracked.planName} | ${tierLabel} | $${tracked.budget}/mo`,
       );
     }
   }
+
+  // --- Summary ---
+  const tracked = Object.values(services).filter((s) => !s.excluded);
+  const excluded = Object.values(services).filter((s) => s.excluded);
+  const liveCount = tracked.filter((s) => s.hasApiKey).length;
+  const totalBudget = tracked.reduce((sum, s) => sum + (s.budget ?? 0), 0);
+
+  console.log("\n  " + "=".repeat(48));
+  console.log(`  ${tracked.length} services configured`);
+  if (liveCount > 0) console.log(`    ${liveCount} with real-time billing (LIVE)`);
+  if (tracked.length - liveCount > 0) console.log(`    ${tracked.length - liveCount} estimated/calculated`);
+  if (excluded.length > 0) console.log(`    ${excluded.length} excluded`);
+  console.log(`  Total monthly budget: $${totalBudget}`);
+  console.log("  " + "=".repeat(48));
 
   // Save any collected API keys
   writeGlobalConfig(globalConfig);

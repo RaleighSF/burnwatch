@@ -5,13 +5,20 @@ All notable changes to burnwatch will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.4.3] - 2026-03-24
+## [0.5.0] - 2026-03-24
+
+### Changed
+
+- **Interactive init rewritten as proper interview**: Each service gets a structured conversation - plan selection, API key collection with hints on where to find them, and budget. Budgets are never skipped - pressing Enter applies the plan cost (or $0 for free tiers) instead of leaving budget undefined. Summary table at the end shows total monthly budget across all services.
+- **Env var auto-detection for API keys**: Init checks `process.env` for known key patterns (e.g., `ANTHROPIC_ADMIN_KEY`, `SCRAPFLY_KEY`) and auto-imports them to global config. No need to re-enter keys that are already in your environment.
+- **API key prompts for all LIVE services**: Previously only fired when the chosen plan had `requiresKey: true`. Now any LIVE-capable service gets the key prompt regardless of plan, with a hint about where to find the key (e.g., "Admin key: console.anthropic.com -> Settings -> Admin API Keys").
+- **Non-interactive init always sets budget**: Every service gets `budget: 0` at minimum (flat-rate services get budget = plan cost). No more undefined budgets showing as "-" in status output.
+- **Non-interactive env var key detection**: Checks environment for API keys matching service patterns, auto-saves to global config for LIVE tracking.
 
 ### Fixed
 
-- **Non-interactive init auto-applies default plans**: `burnwatch init` (non-interactive or re-run) now picks each service's default plan from the registry. Flat-rate services with a cost (e.g., Scrapfly Scale at $80/mo) get budget auto-set to plan cost. Services with existing API keys in global config are auto-detected as LIVE.
-- **Init output shows tier and budget per service**: Non-interactive init now prints each service with its confidence tier, plan name, and budget (if set), plus a clear list of which services still need budgets with the exact `burnwatch add` commands.
-- **Untracked message is actionable**: Changed circular "run burnwatch status" message to "run burnwatch init to configure".
+- **13/14 services had no budget after init**: Root cause was budget prompt saying "press Enter to skip". Now pressing Enter applies the default budget instead of skipping.
+- **Untracked message was circular**: Changed "run burnwatch status" to "run burnwatch init to configure".
 
 ## [0.4.2] - 2026-03-24
 
@@ -59,6 +66,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Snapshot system for delta computation across sessions
 - Claude Code skills: `/spend` (on-demand brief), `/setup-burnwatch` (guided onboarding)
 
+[0.5.0]: https://github.com/RaleighSF/burnwatch/compare/v0.4.3...v0.5.0
 [0.4.3]: https://github.com/RaleighSF/burnwatch/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/RaleighSF/burnwatch/compare/v0.4.0...v0.4.2
 [0.4.0]: https://github.com/RaleighSF/burnwatch/compare/v0.1.0...v0.4.0
