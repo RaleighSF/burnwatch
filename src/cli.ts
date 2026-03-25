@@ -35,6 +35,7 @@ const command = args[0];
 async function main(): Promise<void> {
   switch (command) {
     case "init":
+    case "setup":
       await cmdInit();
       break;
     case "add":
@@ -48,9 +49,6 @@ async function main(): Promise<void> {
       break;
     case "reconcile":
       await cmdReconcile();
-      break;
-    case "setup":
-      await cmdSetup();
       break;
     case "help":
     case "--help":
@@ -501,39 +499,63 @@ function cmdVersion(): void {
 // --- Hook Registration ---
 
 function registerHooks(projectRoot: string): void {
-  // Find or create .claude/settings.json in the project
+  // Step 1: Copy hook scripts into .burnwatch/hooks/ for durability.
+  // This avoids relying on ephemeral npx cache paths.
+  const sourceHooksDir = path.resolve(
+    path.dirname(new URL(import.meta.url).pathname),
+    "hooks",
+  );
+  const localHooksDir = path.join(projectRoot, ".burnwatch", "hooks");
+  fs.mkdirSync(localHooksDir, { recursive: true });
+
+  const hookFiles = [
+    "on-session-start.js",
+    "on-prompt.js",
+    "on-file-change.js",
+    "on-stop.js",
+  ];
+
+  for (const file of hookFiles) {
+    const src = path.join(sourceHooksDir, file);
+    const dest = path.join(localHooksDir, file);
+    try {
+      fs.copyFileSync(src, dest);
+      // Also copy sourcemaps if they exist
+      const mapSrc = src + ".map";
+      if (fs.existsSync(mapSrc)) {
+        fs.copyFileSync(mapSrc, dest + ".map");
+      }
+    } catch (err) {
+      console.error(`   Warning: Could not copy hook ${file}: ${err instanceof Error ? err.message : err}`);
+    }
+  }
+
+  console.log(`   Hook scripts copied to ${localHooksDir}`);
+
+  // Step 2: Find or create .claude/settings.json — MERGE, never overwrite
   const claudeDir = path.join(projectRoot, ".claude");
   const settingsPath = path.join(claudeDir, "settings.json");
 
   fs.mkdirSync(claudeDir, { recursive: true });
 
-  // Read existing settings
+  // Read existing settings (preserve everything)
   let settings: Record<string, unknown> = {};
   try {
-    settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8")) as Record<
-      string,
-      unknown
-    >;
+    const existing = fs.readFileSync(settingsPath, "utf-8");
+    settings = JSON.parse(existing) as Record<string, unknown>;
+    console.log(`   Merging into existing ${settingsPath}`);
   } catch {
-    // Start fresh
+    // No existing settings — start fresh
   }
 
-  // Determine hook command paths — use the built dist if available,
-  // otherwise fall back to npx
-  const hookBase = `node "${path.join(projectRoot, "node_modules", "burnwatch", "dist", "hooks")}"`;
-  const useNpx = !fs.existsSync(
-    path.join(projectRoot, "node_modules", "burnwatch"),
-  );
-  const prefix = useNpx ? "npx --yes burnwatch-hook" : hookBase;
+  // Ensure hooks object exists, preserve all existing hooks
+  if (!settings["hooks"] || typeof settings["hooks"] !== "object") {
+    settings["hooks"] = {};
+  }
+  const hooks = settings["hooks"] as Record<string, unknown[]>;
 
-  // For now, use a simple approach — point to the dist directory
-  // When installed globally via npx, hooks will be in the package's dist/hooks/
-  const hooksDir = path.resolve(
-    path.dirname(new URL(import.meta.url).pathname),
-    "hooks",
-  );
-
-  const hooks = settings["hooks"] as Record<string, unknown[]> | undefined ?? {};
+  // Use the local .burnwatch/hooks/ paths (durable, not ephemeral)
+  const hooksDir = localHooksDir;
 
   // SessionStart hook
   if (!hooks["SessionStart"]) hooks["SessionStart"] = [];

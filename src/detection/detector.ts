@@ -12,17 +12,17 @@ export interface DetectionResult {
 /**
  * Run all detection surfaces against the current project.
  * Returns services detected via any combination of:
- * - package.json dependencies
- * - environment variable patterns
- * - import statement scanning
+ * - package.json dependencies (recursive — finds monorepo subdirectories)
+ * - environment variable patterns (process.env + .env* files recursive)
+ * - import statement scanning (recursive from project root)
  * - (prompt mention scanning is handled separately in hooks)
  */
 export function detectServices(projectRoot: string): DetectionResult[] {
   const registry = loadRegistry(projectRoot);
   const results = new Map<string, DetectionResult>();
 
-  // Surface 1: Package manifest scanning
-  const pkgDeps = scanPackageJson(projectRoot);
+  // Surface 1: Package manifest scanning (recursive — finds all package.json files)
+  const pkgDeps = scanAllPackageJsons(projectRoot);
   for (const [serviceId, service] of registry) {
     const matchedPkgs = service.packageNames.filter((pkg) =>
       pkgDeps.has(pkg),
@@ -36,7 +36,8 @@ export function detectServices(projectRoot: string): DetectionResult[] {
   }
 
   // Surface 2: Environment variable pattern matching
-  const envVars = new Set(Object.keys(process.env));
+  // Check both process.env AND .env* files in the project tree
+  const envVars = collectEnvVars(projectRoot);
   for (const [serviceId, service] of registry) {
     const matchedEnvs = service.envPatterns.filter((pattern) =>
       envVars.has(pattern),
@@ -49,7 +50,7 @@ export function detectServices(projectRoot: string): DetectionResult[] {
     }
   }
 
-  // Surface 3: Import statement analysis (lightweight — scan key files only)
+  // Surface 3: Import statement analysis (recursive from project root)
   const importHits = scanImports(projectRoot);
   for (const [serviceId, service] of registry) {
     const matchedImports = service.importPatterns.filter((pattern) =>
@@ -199,59 +200,179 @@ function getOrCreate(
   return result;
 }
 
-/** Scan package.json for all dependencies. */
-function scanPackageJson(projectRoot: string): Set<string> {
+/**
+ * Recursively find and scan ALL package.json files in the project tree.
+ * Handles monorepos where dependencies live in subdirectories.
+ */
+function scanAllPackageJsons(projectRoot: string): Set<string> {
   const deps = new Set<string>();
-  const pkgPath = path.join(projectRoot, "package.json");
+  const pkgFiles = findFiles(projectRoot, "package.json", 4);
 
-  try {
-    const raw = fs.readFileSync(pkgPath, "utf-8");
-    const pkg = JSON.parse(raw) as {
-      dependencies?: Record<string, string>;
-      devDependencies?: Record<string, string>;
-    };
-    for (const name of Object.keys(pkg.dependencies ?? {})) deps.add(name);
-    for (const name of Object.keys(pkg.devDependencies ?? {})) deps.add(name);
-  } catch {
-    // No package.json or not valid JSON
+  for (const pkgPath of pkgFiles) {
+    try {
+      const raw = fs.readFileSync(pkgPath, "utf-8");
+      const pkg = JSON.parse(raw) as {
+        dependencies?: Record<string, string>;
+        devDependencies?: Record<string, string>;
+      };
+      for (const name of Object.keys(pkg.dependencies ?? {})) deps.add(name);
+      for (const name of Object.keys(pkg.devDependencies ?? {})) deps.add(name);
+    } catch {
+      // Skip malformed package.json
+    }
   }
 
   return deps;
 }
 
 /**
+ * Collect environment variable names from both process.env
+ * and all .env* files found recursively in the project tree.
+ */
+function collectEnvVars(projectRoot: string): Set<string> {
+  const envVars = new Set(Object.keys(process.env));
+
+  // Find all .env* files in the project tree
+  const envFiles = findEnvFiles(projectRoot, 3);
+
+  for (const envFile of envFiles) {
+    try {
+      const content = fs.readFileSync(envFile, "utf-8");
+      const keys = content
+        .split("\n")
+        .filter((line) => line.includes("=") && !line.startsWith("#"))
+        .map((line) => line.split("=")[0]!.trim())
+        .filter(Boolean);
+
+      for (const key of keys) {
+        envVars.add(key);
+      }
+    } catch {
+      // Skip unreadable files
+    }
+  }
+
+  return envVars;
+}
+
+/**
+ * Find all .env* files recursively (but not in node_modules, .git, dist, etc.)
+ */
+function findEnvFiles(dir: string, maxDepth: number): string[] {
+  const results: string[] = [];
+  if (maxDepth <= 0) return results;
+
+  try {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.name === "node_modules" || entry.name === ".git" || entry.name === "dist") continue;
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        results.push(...findEnvFiles(fullPath, maxDepth - 1));
+      } else if (entry.name.startsWith(".env")) {
+        results.push(fullPath);
+      }
+    }
+  } catch {
+    // Skip unreadable directories
+  }
+
+  return results;
+}
+
+/**
+ * Find files with a specific name recursively.
+ * Used to find package.json files across monorepo subdirectories.
+ */
+function findFiles(dir: string, fileName: string, maxDepth: number): string[] {
+  const results: string[] = [];
+  if (maxDepth <= 0) return results;
+
+  try {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.name === "node_modules" || entry.name === ".git" || entry.name === "dist") continue;
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        results.push(...findFiles(fullPath, fileName, maxDepth - 1));
+      } else if (entry.name === fileName) {
+        results.push(fullPath);
+      }
+    }
+  } catch {
+    // Skip unreadable directories
+  }
+
+  return results;
+}
+
+/**
  * Lightweight import scanning.
- * Scans src/ directory for import/require statements.
+ * Recursively scans the project for import/require statements.
+ * Looks in src/, app/, lib/, pages/, and any other code directories.
  * Does NOT do a full AST parse — just string matching.
  */
 function scanImports(projectRoot: string): Set<string> {
   const imports = new Set<string>();
-  const srcDir = path.join(projectRoot, "src");
 
-  if (!fs.existsSync(srcDir)) return imports;
+  // Scan common code directories + the root itself for source files
+  const codeDirs = ["src", "app", "lib", "pages", "components", "utils", "services", "hooks"];
+  const dirsToScan: string[] = [];
 
-  const files = walkDir(srcDir, /\.(ts|tsx|js|jsx|mjs|cjs)$/);
-  for (const file of files) {
-    try {
-      const content = fs.readFileSync(file, "utf-8");
-      // Match: import ... from "package" or require("package")
-      const importRegex =
-        /(?:from\s+["']|require\s*\(\s*["'])([^./][^"']*?)(?:["'])/g;
-      let match: RegExpExecArray | null;
-      while ((match = importRegex.exec(content)) !== null) {
-        const pkg = match[1];
-        if (pkg) {
-          // Normalize scoped packages: @scope/pkg/subpath -> @scope/pkg
-          const parts = pkg.split("/");
-          if (parts[0]?.startsWith("@") && parts.length >= 2) {
-            imports.add(`${parts[0]}/${parts[1]}`);
-          } else if (parts[0]) {
-            imports.add(parts[0]);
+  for (const dir of codeDirs) {
+    const fullPath = path.join(projectRoot, dir);
+    if (fs.existsSync(fullPath)) {
+      dirsToScan.push(fullPath);
+    }
+  }
+
+  // Also check subdirectories (monorepo support)
+  try {
+    const entries = fs.readdirSync(projectRoot, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      if (entry.name === "node_modules" || entry.name === ".git" || entry.name === "dist" || entry.name.startsWith(".")) continue;
+
+      // Check if this subdirectory has its own package.json (monorepo package)
+      const subPkgPath = path.join(projectRoot, entry.name, "package.json");
+      if (fs.existsSync(subPkgPath)) {
+        // Scan this subpackage's code directories
+        for (const dir of codeDirs) {
+          const fullPath = path.join(projectRoot, entry.name, dir);
+          if (fs.existsSync(fullPath)) {
+            dirsToScan.push(fullPath);
           }
         }
       }
-    } catch {
-      // Skip unreadable files
+    }
+  } catch {
+    // Skip if root is unreadable
+  }
+
+  for (const dir of dirsToScan) {
+    const files = walkDir(dir, /\.(ts|tsx|js|jsx|mjs|cjs)$/);
+    for (const file of files) {
+      try {
+        const content = fs.readFileSync(file, "utf-8");
+        // Match: import ... from "package" or require("package")
+        const importRegex =
+          /(?:from\s+["']|require\s*\(\s*["'])([^./][^"']*?)(?:["'])/g;
+        let match: RegExpExecArray | null;
+        while ((match = importRegex.exec(content)) !== null) {
+          const pkg = match[1];
+          if (pkg) {
+            // Normalize scoped packages: @scope/pkg/subpath -> @scope/pkg
+            const parts = pkg.split("/");
+            if (parts[0]?.startsWith("@") && parts.length >= 2) {
+              imports.add(`${parts[0]}/${parts[1]}`);
+            } else if (parts[0]) {
+              imports.add(parts[0]);
+            }
+          }
+        }
+      } catch {
+        // Skip unreadable files
+      }
     }
   }
 
