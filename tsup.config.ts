@@ -8,6 +8,7 @@ export default defineConfig({
     "hooks/on-prompt": "src/hooks/on-prompt.ts",
     "hooks/on-file-change": "src/hooks/on-file-change.ts",
     "hooks/on-stop": "src/hooks/on-stop.ts",
+    "mcp-server": "src/mcp-server.ts",
   },
   format: ["esm"],
   target: "node18",
