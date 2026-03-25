@@ -19,7 +19,8 @@
     "registry.json",
     "skills",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsup && node -e \"const fs=require('fs');const f='dist/cli.js';const c=fs.readFileSync(f,'utf8');if(!c.startsWith('#!')){fs.writeFileSync(f,'#!/usr/bin/env node\\n'+c)}\"",
@@ -38,10 +39,20 @@
     "developer-tools",
     "ai",
     "vibe-coding",
-    "finops"
+    "finops",
+    "billing",
+    "usage-tracking"
   ],
-  "author": "",
+  "author": "RaleighSF",
   "license": "MIT",
+  "homepage": "https://github.com/RaleighSF/burnwatch#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RaleighSF/burnwatch.git"
+  },
+  "bugs": {
+    "url": "https://github.com/RaleighSF/burnwatch/issues"
+  },
   "engines": {
     "node": ">=18"
   },
