@@ -50,6 +50,10 @@ export interface PlanTier {
   requiresKey?: boolean;
   /** Whether this is the default/most common plan */
   default?: boolean;
+  /** Included units for credit-pool plans (e.g., 1M credits on Scrapfly Pro) */
+  includedUnits?: number;
+  /** Unit name for credit-pool plans (e.g., "credits", "sessions") */
+  unitName?: string;
 }
 
 /** Risk category for service grouping in interactive init. */
@@ -124,6 +128,13 @@ export interface TrackedService {
   excluded?: boolean;
   /** Plan name selected during interactive init */
   planName?: string;
+  /** For credit-pool services: the unit allowance included in the plan */
+  allowance?: {
+    /** Total units included in the plan (e.g., 1000000 credits) */
+    included: number;
+    /** Unit name (e.g., "credits", "sessions", "commands") */
+    unitName: string;
+  };
 }
 
 export type DetectionSource =
@@ -155,6 +166,19 @@ export interface SpendSnapshot {
   raw?: Record<string, unknown>;
   /** Timestamp of this snapshot */
   timestamp: string;
+  /** Whether this is a flat-fee plan (spend == budget is expected, not alarming) */
+  isFlatPlan?: boolean;
+  /** For credit-pool services: unit consumption tracking */
+  allowance?: {
+    /** Units consumed this period */
+    used: number;
+    /** Total units included in plan */
+    included: number;
+    /** Unit name (e.g., "credits") */
+    unitName: string;
+    /** Percentage of allowance consumed */
+    percent: number;
+  };
 }
 
 /** The full spend brief, injected at session start. */

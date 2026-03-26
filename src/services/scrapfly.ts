@@ -55,6 +55,9 @@ export const scrapflyConnector: BillingConnector = {
       spend,
       isEstimate: false,
       tier: "live",
+      unitsUsed: creditsUsed,
+      unitsTotal: creditsTotal,
+      unitName: "credits",
       raw: {
         credits_used: creditsUsed,
         credits_total: creditsTotal,

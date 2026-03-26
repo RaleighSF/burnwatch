@@ -30,10 +30,21 @@ import {
 } from "./core/brief.js";
 import { getService, getAllServices } from "./core/registry.js";
 import { detectServices } from "./detection/detector.js";
+import { analyzeCostImpact, formatCostImpactCard } from "./cost-impact.js";
+import {
+  readUtilizationModel,
+  formatUtilizationSummary,
+} from "./utilization.js";
+import * as fs from "node:fs";
+import * as path from "node:path";
+
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
+const pkg = require("../package.json") as { version: string };
 
 const server = new McpServer({
   name: "burnwatch",
-  version: "0.1.2",
+  version: pkg.version,
 });
 
 // --- Tool: get_spend_brief ---
@@ -94,6 +105,8 @@ server.tool(
         r.tier,
         r.spend,
         config.services[r.serviceId]?.budget,
+        undefined,
+        r.isEstimate,
       ),
     );
     const blindCount = snapshots.filter((s) => s.tier === "blind").length;
@@ -279,6 +292,170 @@ server.tool(
 
     return {
       content: [{ type: "text" as const, text: lines.join("\n") }],
+    };
+  },
+);
+
+// --- Tool: analyze_cost_impact ---
+
+server.tool(
+  "analyze_cost_impact",
+  "Analyze a source file for cost-impacting SDK calls. Detects service call sites, loop/cron multipliers, and projects monthly cost using billing manifests with per-model variant detection. Use this before writing code that introduces new API calls, or to evaluate the cost of existing code.",
+  {
+    file_path: z
+      .string()
+      .describe("Absolute path to the source file to analyze."),
+    file_content: z
+      .string()
+      .optional()
+      .describe(
+        "File content to analyze. If omitted, reads from file_path.",
+      ),
+    project_path: z
+      .string()
+      .optional()
+      .describe("Path to the project root. Defaults to cwd."),
+  },
+  async ({ file_path, file_content, project_path }) => {
+    const projectRoot = project_path ?? process.cwd();
+
+    let content: string;
+    if (file_content) {
+      content = file_content;
+    } else {
+      try {
+        content = fs.readFileSync(file_path, "utf-8");
+      } catch {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Could not read file: ${file_path}`,
+            },
+          ],
+        };
+      }
+    }
+
+    const impacts = analyzeCostImpact(file_path, content, projectRoot);
+
+    if (impacts.length === 0) {
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `No cost-impacting SDK calls detected in ${file_path.split("/").pop()}.`,
+          },
+        ],
+      };
+    }
+
+    // Build current budget context
+    const snapshot = readLatestSnapshot(projectRoot);
+    const currentBudgets: Record<string, { spend: number; budget?: number }> =
+      {};
+    if (snapshot) {
+      for (const svc of snapshot.services) {
+        currentBudgets[svc.serviceId] = {
+          spend: svc.spend,
+          budget: svc.budget,
+        };
+      }
+    }
+
+    const card = formatCostImpactCard(impacts, currentBudgets);
+
+    return {
+      content: [{ type: "text" as const, text: card }],
+    };
+  },
+);
+
+// --- Tool: get_utilization ---
+
+server.tool(
+  "get_utilization",
+  "Get the project-wide utilization model showing all SDK call sites, projected monthly usage, plan inclusions, and overage costs. Use this to understand the project's total cost footprint across all services.",
+  {
+    project_path: z
+      .string()
+      .optional()
+      .describe("Path to the project root. Defaults to cwd."),
+  },
+  async ({ project_path }) => {
+    const projectRoot = project_path ?? process.cwd();
+    const model = readUtilizationModel(projectRoot);
+
+    if (Object.keys(model.services).length === 0) {
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: "No utilization data available. Run `burnwatch scan` or edit some source files to build the utilization model.",
+          },
+        ],
+      };
+    }
+
+    return {
+      content: [
+        { type: "text" as const, text: formatUtilizationSummary(model) },
+      ],
+    };
+  },
+);
+
+// --- Tool: get_billing_manifest ---
+
+server.tool(
+  "get_billing_manifest",
+  "Get the detailed billing manifest for a service — shows every billing dimension, per-model/variant rates, plan inclusions, overage rates, and cost multipliers. Use this to understand exactly how a service charges before recommending it or estimating costs.",
+  {
+    service_id: z
+      .string()
+      .describe(
+        "The service identifier (e.g., 'anthropic', 'browserbase', 'scrapfly')",
+      ),
+  },
+  async ({ service_id }) => {
+    // Find the manifest file
+    const candidates = [
+      path.resolve(
+        path.dirname(new URL(import.meta.url).pathname),
+        "../billing",
+        `${service_id}.json`,
+      ),
+      path.resolve(
+        path.dirname(new URL(import.meta.url).pathname),
+        "../../billing",
+        `${service_id}.json`,
+      ),
+    ];
+
+    for (const candidate of candidates) {
+      try {
+        const raw = fs.readFileSync(candidate, "utf-8");
+        const manifest = JSON.parse(raw) as Record<string, unknown>;
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(manifest, null, 2),
+            },
+          ],
+        };
+      } catch {
+        continue;
+      }
+    }
+
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: `No billing manifest found for "${service_id}". Available manifests: anthropic, openai, google-gemini, voyage-ai, browserbase, scrapfly, vercel, supabase, upstash, resend, inngest, posthog.`,
+        },
+      ],
     };
   },
 );

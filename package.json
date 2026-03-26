@@ -1,7 +1,7 @@
 {
   "name": "burnwatch",
-  "version": "0.5.2",
-  "description": "Passive cost memory for vibe coding — detects paid services, tracks spend, injects budget context into your AI coding sessions.",
+  "version": "0.14.0",
+  "description": "Passive cost memory for AI-assisted development — detects paid services, tracks spend, injects budget context into your AI coding sessions.",
   "type": "module",
   "bin": {
     "burnwatch": "./dist/cli.js"
@@ -17,6 +17,7 @@
   "files": [
     "dist",
     "registry.json",
+    "billing",
     "skills",
     "README.md",
     "LICENSE",

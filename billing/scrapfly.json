@@ -1,0 +1,38 @@
+{
+  "$schema": "./billing.schema.json",
+  "serviceId": "scrapfly",
+  "name": "Scrapfly",
+  "lastVerified": "2026-03-25",
+  "pricingUrl": "https://scrapfly.io/pricing",
+  "notes": "Scrapfly charges per API credit. A basic scrape costs 1 credit, but anti-bot bypass (asp=true) costs 5-25 credits per request depending on the target site's protection level. JavaScript rendering adds extra credits. Credits reset monthly, no rollover.",
+  "billingDimensions": [
+    {
+      "id": "credits",
+      "name": "API credits",
+      "unit": "credit",
+      "ratePerUnit": 0.0001,
+      "ratePer": 1,
+      "variants": [
+        { "id": "basic", "name": "Basic scrape (no ASP)", "ratePerUnit": 0.0001, "ratePer": 1, "codePatterns": ["asp.*false", "ScrapeConfig(?!.*asp)"], "isDefault": true },
+        { "id": "asp_light", "name": "ASP light (5 credits)", "ratePerUnit": 0.0005, "ratePer": 1, "codePatterns": ["asp.*true"] },
+        { "id": "asp_heavy", "name": "ASP heavy (10-25 credits)", "ratePerUnit": 0.0015, "ratePer": 1, "codePatterns": ["asp.*true.*render_js.*true", "render_js.*true.*asp.*true"] }
+      ]
+    }
+  ],
+  "plans": [
+    { "id": "discovery", "name": "Discovery ($30/mo, 200K credits)", "monthlyBase": 30, "included": { "credits": 200000 } },
+    { "id": "pro", "name": "Pro ($100/mo, 1M credits)", "monthlyBase": 100, "included": { "credits": 1000000 }, "isDefault": true },
+    { "id": "startup", "name": "Startup ($250/mo, 2.5M credits)", "monthlyBase": 250, "included": { "credits": 2500000 } },
+    { "id": "enterprise", "name": "Enterprise ($500/mo, 5.5M credits)", "monthlyBase": 500, "included": { "credits": 5500000 } }
+  ],
+  "costMultipliers": [
+    { "id": "asp", "name": "Anti-Scraping Protection bypass", "factor": 10, "description": "ASP bypass consumes 5-25x base credits per request depending on site protection level", "codePatterns": ["asp.*true", "asp:\\s*true", "anti_scraping_protection"] },
+    { "id": "js_render", "name": "JavaScript rendering", "factor": 2, "description": "JS rendering adds ~2x credit cost per scrape", "codePatterns": ["render_js.*true", "renderJs.*true", "javascript.*true"] },
+    { "id": "screenshot", "name": "Screenshot capture", "factor": 2, "description": "Taking screenshots adds extra credits", "codePatterns": ["screenshots", "screenshot.*true"] }
+  ],
+  "typicalDevUsage": {
+    "callsPerDevHour": 10,
+    "unitsPerCall": 5,
+    "unitName": "credits"
+  }
+}

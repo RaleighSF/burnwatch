@@ -26,12 +26,11 @@ For each detected service, walk the user through configuration **one service at 
 ### High-priority (usage-based, likely to cause surprises):
 1. **LLM providers** (Anthropic, OpenAI, Google Gemini) — these are usually the biggest spend
 2. **Scraping/browser** (Scrapfly, Browserbase) — credit-based, easy to overspend
-3. **Infrastructure** (Vercel, AWS, Supabase) — tiered with overages
+3. **Infrastructure** (Vercel, Supabase) — tiered with overages
 
 ### Medium-priority (transaction/event-based):
-4. **Payments** (Stripe) — percentage-based, scales with revenue
-5. **Email** (Resend) — per-email, usually small
-6. **Cache/queue** (Upstash, Inngest) — per-command, usually small
+4. **Email** (Resend) — per-email, usually small
+5. **Cache/queue** (Upstash, Inngest) — per-command, usually small
 
 ### Low-priority (flat-rate or free tier):
 7. **Analytics** (PostHog) — often on free tier
@@ -47,7 +46,7 @@ For each service, ask the user:
    - Suggest a reasonable default based on the service type
    - For flat-rate: "What plan are you on? (e.g., PostHog free tier = $0/mo)"
 
-3. **"Any notes?"** — skip this for most, but for complex services like AWS, acknowledge that burnwatch tracks it as BLIND and suggest they check their AWS console directly.
+3. **"Any notes?"** — skip this for most services.
 
 ## Step 3: Show the Brief
 
@@ -56,10 +55,9 @@ After configuring all services, run `burnwatch status` and show the result. Cele
 ## Key Behaviors
 
 - **Be concise.** Don't explain what burnwatch is — the user already chose to set it up.
-- **Group services.** Don't ask 14 questions one at a time. Group similar services: "For your LLM providers (Anthropic, OpenAI) — do you have admin API keys? What monthly budget for each?"
+- **Group services.** Don't ask 12 questions one at a time. Group similar services: "For your LLM providers (Anthropic, OpenAI) — do you have admin API keys? What monthly budget for each?"
 - **Suggest defaults.** "Most projects budget $50-100/mo for Anthropic. Sound right?"
 - **Skip what's obvious.** If PostHog is on free tier, just say "I'll set PostHog to $0/mo free tier" and move on.
-- **Be honest about BLIND.** "AWS is too complex for automatic tracking — I'll flag it so you see it in the ledger, but check your AWS console for actual spend."
 - **Show the payoff.** End with the brief so they see the value immediately.
 
 ## Example Conversation Flow
@@ -89,7 +87,7 @@ Agent: Got it.
 Agent: All set! Here's your spend brief:
        [shows burnwatch status output]
 
-       You're tracking 8 services with real data, 3 are estimated,
-       and AWS is flagged as BLIND. The brief will appear automatically
+       You're tracking 8 services with real data and 3 are estimated.
+       The brief will appear automatically
        at the start of every Claude Code session.
 ```

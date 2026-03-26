@@ -1,0 +1,61 @@
+{
+  "$schema": "./billing.schema.json",
+  "serviceId": "posthog",
+  "name": "PostHog",
+  "lastVerified": "2026-03-25",
+  "pricingUrl": "https://posthog.com/pricing",
+  "notes": "PostHog uses a generous free tier per product. Each product (analytics, session replay, feature flags, surveys, data pipeline) bills independently. Analytics free tier is 1M events/mo. Session replay is 5K sessions/mo free. Pricing is volume-tiered — per-event cost decreases at higher volumes.",
+  "billingDimensions": [
+    {
+      "id": "analytics_events",
+      "name": "Product analytics events",
+      "unit": "event",
+      "ratePerUnit": 0.00005,
+      "ratePer": 1,
+      "variants": [
+        { "id": "standard", "name": "Standard events", "ratePerUnit": 0.00005, "ratePer": 1, "codePatterns": ["posthog\\.capture", "posthog-js", "@posthog"], "isDefault": true }
+      ]
+    },
+    {
+      "id": "session_replays",
+      "name": "Session replay recordings",
+      "unit": "recording",
+      "ratePerUnit": 0.005,
+      "ratePer": 1,
+      "variants": [
+        { "id": "standard", "name": "Standard recording", "ratePerUnit": 0.005, "ratePer": 1, "codePatterns": ["session_recording", "recordCrossOriginIframes"], "isDefault": true }
+      ]
+    },
+    {
+      "id": "feature_flag_requests",
+      "name": "Feature flag requests",
+      "unit": "request",
+      "ratePerUnit": 0.0001,
+      "ratePer": 1,
+      "variants": [
+        { "id": "standard", "name": "Standard request", "ratePerUnit": 0.0001, "ratePer": 1, "codePatterns": ["getFeatureFlag", "isFeatureEnabled", "feature_flags"], "isDefault": true }
+      ]
+    }
+  ],
+  "plans": [
+    {
+      "id": "free",
+      "name": "Free (generous per-product limits)",
+      "monthlyBase": 0,
+      "included": { "analytics_events": 1000000, "session_replays": 5000, "feature_flag_requests": 1000000 },
+      "hardCap": false,
+      "isDefault": true
+    },
+    {
+      "id": "usage",
+      "name": "Pay-as-you-go (beyond free tier)",
+      "monthlyBase": 0,
+      "overageRates": { "analytics_events": 0.00005, "session_replays": 0.005, "feature_flag_requests": 0.0001 }
+    }
+  ],
+  "typicalDevUsage": {
+    "callsPerDevHour": 0,
+    "unitsPerCall": 0,
+    "unitName": "events"
+  }
+}

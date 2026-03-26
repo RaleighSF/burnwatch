@@ -1,0 +1,32 @@
+{
+  "$schema": "./billing.schema.json",
+  "serviceId": "supabase",
+  "name": "Supabase",
+  "lastVerified": "2026-03-25",
+  "pricingUrl": "https://supabase.com/pricing",
+  "notes": "Pro plan is $25/mo with generous inclusions. Overages are billed per dimension. Database size, bandwidth, and storage are the typical overage drivers. Edge functions have separate per-invocation pricing. Auth MAUs are included up to 100K on Pro.",
+  "billingDimensions": [
+    { "id": "database_size", "name": "Database size", "unit": "GB", "ratePerUnit": 0.125, "ratePer": 1 },
+    { "id": "bandwidth", "name": "Bandwidth", "unit": "GB", "ratePerUnit": 0.09, "ratePer": 1 },
+    { "id": "storage", "name": "File storage", "unit": "GB", "ratePerUnit": 0.021, "ratePer": 1 },
+    { "id": "edge_invocations", "name": "Edge function invocations", "unit": "invocation", "ratePerUnit": 2.00, "ratePer": 1000000 },
+    { "id": "auth_mau", "name": "Auth monthly active users", "unit": "MAU", "ratePerUnit": 0.00325, "ratePer": 1 }
+  ],
+  "plans": [
+    {
+      "id": "free", "name": "Free", "monthlyBase": 0,
+      "included": { "database_size": 0.5, "bandwidth": 5, "storage": 1, "edge_invocations": 500000, "auth_mau": 50000 },
+      "hardCap": true, "isDefault": true
+    },
+    {
+      "id": "pro", "name": "Pro ($25/mo)", "monthlyBase": 25,
+      "included": { "database_size": 8, "bandwidth": 250, "storage": 100, "edge_invocations": 2000000, "auth_mau": 100000 },
+      "overageRates": { "database_size": 0.125, "bandwidth": 0.09, "storage": 0.021, "edge_invocations": 2.00, "auth_mau": 0.00325 }
+    },
+    {
+      "id": "team", "name": "Team ($599/mo)", "monthlyBase": 599,
+      "included": { "database_size": 8, "bandwidth": 250, "storage": 100, "edge_invocations": 2000000, "auth_mau": 100000 }
+    }
+  ],
+  "typicalDevUsage": { "callsPerDevHour": 50, "unitsPerCall": 1, "unitName": "queries" }
+}

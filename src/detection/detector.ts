@@ -144,13 +144,10 @@ export function detectInFileChange(
 
   // Check if it's an env file change
   if (fileName.startsWith(".env")) {
-    const envKeys = content
-      .split("\n")
-      .filter((line) => line.includes("=") && !line.startsWith("#"))
-      .map((line) => line.split("=")[0]!.trim());
+    const envKeys = parseEnvKeys(content);
 
     for (const [, service] of registry) {
-      const matched = service.envPatterns.filter((p) => envKeys.includes(p));
+      const matched = service.envPatterns.filter((p) => envKeys.has(p));
       if (matched.length > 0) {
         results.push({
           service,
@@ -238,13 +235,7 @@ function collectEnvVars(projectRoot: string): Set<string> {
   for (const envFile of envFiles) {
     try {
       const content = fs.readFileSync(envFile, "utf-8");
-      const keys = content
-        .split("\n")
-        .filter((line) => line.includes("=") && !line.startsWith("#"))
-        .map((line) => line.split("=")[0]!.trim())
-        .filter(Boolean);
-
-      for (const key of keys) {
+      for (const key of parseEnvKeys(content)) {
         envVars.add(key);
       }
     } catch {
@@ -256,9 +247,30 @@ function collectEnvVars(projectRoot: string): Set<string> {
 }
 
 /**
+ * Parse an env file's content into a set of variable names.
+ * Handles `export` prefix, quoted values, inline comments, whitespace.
+ */
+export function parseEnvKeys(content: string): Set<string> {
+  const keys = new Set<string>();
+  for (const line of content.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    // Strip optional "export " prefix
+    const stripped = trimmed.startsWith("export ")
+      ? trimmed.slice(7).trim()
+      : trimmed;
+    const eqIdx = stripped.indexOf("=");
+    if (eqIdx > 0) {
+      keys.add(stripped.slice(0, eqIdx).trim());
+    }
+  }
+  return keys;
+}
+
+/**
  * Find all .env* files recursively (but not in node_modules, .git, dist, etc.)
  */
-function findEnvFiles(dir: string, maxDepth: number): string[] {
+export function findEnvFiles(dir: string, maxDepth: number): string[] {
   const results: string[] = [];
   if (maxDepth <= 0) return results;
 

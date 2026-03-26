@@ -1,0 +1,66 @@
+{
+  "$schema": "./billing.schema.json",
+  "serviceId": "google-gemini",
+  "name": "Google Gemini (AI Studio / Vertex)",
+  "lastVerified": "2026-03-25",
+  "pricingUrl": "https://ai.google.dev/pricing",
+  "notes": "AI Studio offers a generous free tier. Paid tier pricing varies dramatically by model. Gemini 2.0 Flash is extremely cheap. Context caching reduces input token cost by ~75%. Grounding with Google Search adds per-request cost.",
+  "billingDimensions": [
+    {
+      "id": "input_tokens",
+      "name": "Input tokens",
+      "unit": "token",
+      "ratePerUnit": 0.075,
+      "ratePer": 1000000,
+      "variants": [
+        { "id": "flash_2", "name": "Gemini 2.0 Flash", "ratePerUnit": 0.075, "ratePer": 1000000, "codePatterns": ["gemini-2\\.0-flash", "gemini-2-flash"], "isDefault": true },
+        { "id": "flash_lite", "name": "Gemini 2.0 Flash-Lite", "ratePerUnit": 0.0375, "ratePer": 1000000, "codePatterns": ["flash-lite", "gemini-2\\.0-flash-lite"] },
+        { "id": "pro_2", "name": "Gemini 2.5 Pro", "ratePerUnit": 1.25, "ratePer": 1000000, "codePatterns": ["gemini-2\\.5-pro", "gemini-pro"] },
+        { "id": "flash_thinking", "name": "Gemini 2.0 Flash Thinking", "ratePerUnit": 0.075, "ratePer": 1000000, "codePatterns": ["flash-thinking", "thinking-exp"] }
+      ]
+    },
+    {
+      "id": "output_tokens",
+      "name": "Output tokens",
+      "unit": "token",
+      "ratePerUnit": 0.30,
+      "ratePer": 1000000,
+      "variants": [
+        { "id": "flash_2", "name": "Gemini 2.0 Flash", "ratePerUnit": 0.30, "ratePer": 1000000, "codePatterns": ["gemini-2\\.0-flash"], "isDefault": true },
+        { "id": "flash_lite", "name": "Gemini 2.0 Flash-Lite", "ratePerUnit": 0.15, "ratePer": 1000000, "codePatterns": ["flash-lite"] },
+        { "id": "pro_2", "name": "Gemini 2.5 Pro", "ratePerUnit": 10.00, "ratePer": 1000000, "codePatterns": ["gemini-2\\.5-pro", "gemini-pro"] },
+        { "id": "flash_thinking", "name": "Gemini 2.0 Flash Thinking", "ratePerUnit": 0.30, "ratePer": 1000000, "codePatterns": ["flash-thinking"] }
+      ]
+    },
+    {
+      "id": "images",
+      "name": "Image generation",
+      "unit": "image",
+      "ratePerUnit": 0.039,
+      "ratePer": 1,
+      "variants": [
+        { "id": "imagen3", "name": "Imagen 3", "ratePerUnit": 0.04, "ratePer": 1, "codePatterns": ["imagen"], "isDefault": true }
+      ]
+    }
+  ],
+  "plans": [
+    {
+      "id": "free",
+      "name": "Free (AI Studio)",
+      "monthlyBase": 0,
+      "included": { "input_tokens": 1000000, "output_tokens": 1000000 },
+      "hardCap": false,
+      "isDefault": true
+    },
+    {
+      "id": "pay_as_you_go",
+      "name": "Pay-as-you-go",
+      "monthlyBase": 0
+    }
+  ],
+  "typicalDevUsage": {
+    "callsPerDevHour": 6,
+    "unitsPerCall": 2000,
+    "unitName": "tokens"
+  }
+}

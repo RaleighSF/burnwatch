@@ -7,42 +7,96 @@ import type {
 import { CONFIDENCE_BADGES } from "./types.js";
 
 /**
+ * Format a spend brief as a markdown table — clean rendering in agent/IDE contexts.
+ */
+export function formatBriefMarkdown(brief: SpendBrief): string {
+  const lines: string[] = [];
+  lines.push(`**BURNWATCH** — ${brief.projectName} — ${brief.period}\n`);
+  lines.push("| Service | Spend | Conf | Budget | Left |");
+  lines.push("|---------|-------|------|--------|------|");
+
+  for (const svc of brief.services.filter(s => s.tier !== "excluded")) {
+    const spendStr = svc.tier === "blind" && svc.spend === 0
+      ? "—"
+      : svc.isEstimate
+        ? `~$${svc.spend.toFixed(2)}`
+        : `$${svc.spend.toFixed(2)}`;
+    const badge = CONFIDENCE_BADGES[svc.tier];
+    const budgetStr = svc.budget ? `$${svc.budget}` : "—";
+    const leftStr = formatLeft(svc);
+    lines.push(`| ${svc.serviceId} | ${spendStr} | ${badge} | ${budgetStr} | ${leftStr} |`);
+
+    if (svc.allowance) {
+      const usedStr = formatCompact(svc.allowance.used);
+      const totalStr = formatCompact(svc.allowance.included);
+      const pctStr = svc.allowance.percent.toFixed(0);
+      const warn = svc.allowance.percent >= 75 ? " ⚠️" : "";
+      lines.push(`| | ↳ ${usedStr}/${totalStr} ${svc.allowance.unitName} (${pctStr}%)${warn} | | | |`);
+    }
+  }
+
+  const totalStr = brief.totalIsEstimate
+    ? `~$${brief.totalSpend.toFixed(2)}`
+    : `$${brief.totalSpend.toFixed(2)}`;
+  const marginStr = brief.estimateMargin > 0
+    ? ` (±$${brief.estimateMargin.toFixed(0)})`
+    : "";
+  const blindStr = brief.untrackedCount > 0
+    ? ` | No billing data: ${brief.untrackedCount}`
+    : "";
+
+  lines.push(`\n**Total: ${totalStr}${marginStr}${blindStr}**`);
+
+  for (const alert of brief.alerts) {
+    const icon = alert.severity === "critical" ? "🚨" : "⚠️";
+    lines.push(`${icon} ${alert.message}`);
+  }
+
+  return lines.join("\n");
+}
+
+/**
  * Format a spend brief as a text block for injection into Claude's context.
+ * Uses a left-edge-only box: ║ on the left, no right border.
+ * This avoids emoji-width alignment issues across terminals, IDEs, and agent contexts.
  */
 export function formatBrief(brief: SpendBrief): string {
   const lines: string[] = [];
-  const width = 62;
-  const hrDouble = "═".repeat(width);
-  const hrSingle = "─".repeat(width - 4);
+  const hr = "═".repeat(62);
+  const hrThin = "─".repeat(58);
 
-  lines.push(`╔${hrDouble}╗`);
-  lines.push(
-    `║  BURNWATCH — ${brief.projectName} — ${brief.period}`.padEnd(
-      width + 1,
-    ) + "║",
-  );
-  lines.push(`╠${hrDouble}╣`);
+  lines.push(`╔${hr}`);
+  lines.push(`║  BURNWATCH — ${brief.projectName} — ${brief.period}`);
+  lines.push(`╠${hr}`);
 
   // Header
-  lines.push(
-    formatRow("Service", "Spend", "Conf", "Budget", "Left", width),
-  );
-  lines.push(`║  ${hrSingle}  ║`);
+  lines.push(formatRow("Service", "Spend", "Conf", "Budget", "Left"));
+  lines.push(`║  ${hrThin}`);
 
-  // Service rows
-  for (const svc of brief.services) {
-    const spendStr = svc.isEstimate
-      ? `~$${svc.spend.toFixed(2)}`
-      : `$${svc.spend.toFixed(2)}`;
+  // Service rows (skip excluded services)
+  for (const svc of brief.services.filter(s => s.tier !== "excluded")) {
+    const spendStr = svc.tier === "blind" && svc.spend === 0
+      ? "—"
+      : svc.isEstimate
+        ? `~$${svc.spend.toFixed(2)}`
+        : `$${svc.spend.toFixed(2)}`;
     const badge = CONFIDENCE_BADGES[svc.tier];
     const budgetStr = svc.budget ? `$${svc.budget}` : "—";
     const leftStr = formatLeft(svc);
 
-    lines.push(formatRow(svc.serviceId, spendStr, badge, budgetStr, leftStr, width));
+    lines.push(formatRow(svc.serviceId, spendStr, badge, budgetStr, leftStr));
+
+    if (svc.allowance) {
+      const usedStr = formatCompact(svc.allowance.used);
+      const totalStr = formatCompact(svc.allowance.included);
+      const pctStr = svc.allowance.percent.toFixed(0);
+      const warn = svc.allowance.percent >= 75 ? " ⚠️" : "";
+      lines.push(`║    ↳ ${usedStr}/${totalStr} ${svc.allowance.unitName} (${pctStr}%)${warn}`);
+    }
   }
 
   // Footer
-  lines.push(`╠${hrDouble}╣`);
+  lines.push(`╠${hr}`);
   const totalStr = brief.totalIsEstimate
     ? `~$${brief.totalSpend.toFixed(2)}`
     : `$${brief.totalSpend.toFixed(2)}`;
@@ -51,24 +105,17 @@ export function formatBrief(brief: SpendBrief): string {
     : "";
   const untrackedStr =
     brief.untrackedCount > 0
-      ? `Untracked: ${brief.untrackedCount} ⚠️`
-      : `Untracked: 0 ✅`;
+      ? `No billing data: ${brief.untrackedCount} ⚠️`
+      : `All tracked ✅`;
 
-  lines.push(
-    `║  TOTAL: ${totalStr}   ${untrackedStr}${marginStr}`.padEnd(
-      width + 1,
-    ) + "║",
-  );
+  lines.push(`║  TOTAL: ${totalStr}   ${untrackedStr}${marginStr}`);
 
-  // Alerts
   for (const alert of brief.alerts) {
     const icon = alert.severity === "critical" ? "🚨" : "⚠️";
-    lines.push(
-      `║  ${icon}  ${alert.message}`.padEnd(width + 1) + "║",
-    );
+    lines.push(`║  ${icon}  ${alert.message}`);
   }
 
-  lines.push(`╚${hrDouble}╝`);
+  lines.push(`╚${hr}`);
 
   return lines.join("\n");
 }
@@ -135,12 +182,15 @@ export function buildBrief(
         severity: "critical",
       });
     } else if (snap.status === "caution" && snap.budgetPercent && snap.budgetPercent >= 80) {
-      alerts.push({
-        serviceId: snap.serviceId,
-        type: "near_budget",
-        message: `${snap.serviceId} at ${snap.budgetPercent.toFixed(0)}% of budget`,
-        severity: "warning",
-      });
+      // Don't warn for flat-fee services at exactly their plan cost — that's expected
+      if (!(snap.isFlatPlan && snap.budgetPercent >= 99.5 && snap.budgetPercent <= 100.5)) {
+        alerts.push({
+          serviceId: snap.serviceId,
+          type: "near_budget",
+          message: `${snap.serviceId} at ${snap.budgetPercent.toFixed(0)}% of budget`,
+          severity: "warning",
+        });
+      }
     }
   }
 
@@ -148,7 +198,7 @@ export function buildBrief(
     alerts.push({
       serviceId: "_blind",
       type: "blind_service",
-      message: `${blindCount} service${blindCount > 1 ? "s" : ""} detected but untracked - run 'burnwatch init' to configure`,
+      message: `${blindCount} service${blindCount > 1 ? "s" : ""} have no billing data — add API keys for live tracking`,
       severity: "warning",
     });
   }
@@ -174,15 +224,13 @@ function formatRow(
   conf: string,
   budget: string,
   left: string,
-  width: number,
 ): string {
-  const row = `  ${service.padEnd(14)} ${spend.padEnd(11)} ${conf.padEnd(7)} ${budget.padEnd(7)} ${left}`;
-  return `║${row}`.padEnd(width + 1) + "║";
+  return `║  ${service.padEnd(14)} ${spend.padEnd(11)} ${conf.padEnd(9)} ${budget.padEnd(7)} ${left}`;
 }
 
 function formatLeft(snap: SpendSnapshot): string {
   if (!snap.budget) return "—";
-  if (snap.status === "over") return "⚠️ OVR";
+  if (snap.status === "over") return "⚠️ OVER";
   if (snap.budgetPercent !== undefined) {
     const remaining = 100 - snap.budgetPercent;
     return `${remaining.toFixed(0)}%`;
@@ -198,17 +246,28 @@ export function buildSnapshot(
   tier: ConfidenceTier,
   spend: number,
   budget?: number,
+  allowanceData?: { used: number; included: number; unitName: string },
+  isEstimateOverride?: boolean,
+  isFlatPlan?: boolean,
 ): SpendSnapshot {
-  const isEstimate = tier === "est" || tier === "calc";
-  const budgetPercent = budget ? (spend / budget) * 100 : undefined;
+  // Guard against NaN — one bad connector should never poison the whole brief
+  if (isNaN(spend) || !isFinite(spend)) spend = 0;
+  if (budget !== undefined && (isNaN(budget) || !isFinite(budget))) budget = undefined;
+
+  const isEstimate = isEstimateOverride ?? (tier === "est" || tier === "calc");
+  const budgetPercent = budget && budget > 0 ? (spend / budget) * 100 : undefined;
 
   let status: SpendSnapshot["status"] = "unknown";
-  let statusLabel = "no budget";
+  let statusLabel = tier === "blind" ? "needs API key" : "no budget";
 
   if (budget) {
     if (budgetPercent! > 100) {
       status = "over";
-      statusLabel = `⚠️ ${budgetPercent!.toFixed(0)}% over`;
+      statusLabel = `${budgetPercent!.toFixed(0)}% over`;
+    } else if (isFlatPlan && budgetPercent! >= 99.5) {
+      // Flat-fee service at exactly budget — this is expected, not a warning
+      status = "healthy";
+      statusLabel = "flat — on plan";
     } else if (budgetPercent! >= 75) {
       status = "caution";
       statusLabel = `${(100 - budgetPercent!).toFixed(0)}% — caution`;
@@ -218,7 +277,24 @@ export function buildSnapshot(
     }
   }
 
-  if (tier === "calc" && budget) {
+  // For credit-pool services, allowance consumption drives the status
+  let allowance: SpendSnapshot["allowance"] | undefined;
+  if (allowanceData && allowanceData.included > 0) {
+    const percent = (allowanceData.used / allowanceData.included) * 100;
+    allowance = { ...allowanceData, percent };
+
+    // Override status based on allowance consumption
+    if (percent > 100) {
+      status = "over";
+      statusLabel = `⚠️ ${percent.toFixed(0)}% of ${formatCompact(allowanceData.included)} ${allowanceData.unitName} used`;
+    } else if (percent >= 75) {
+      status = "caution";
+      statusLabel = `${formatCompact(allowanceData.included - allowanceData.used)} ${allowanceData.unitName} left — caution`;
+    } else {
+      status = "healthy";
+      statusLabel = `${formatCompact(allowanceData.included - allowanceData.used)} ${allowanceData.unitName} left`;
+    }
+  } else if (tier === "calc" && budget) {
     statusLabel = `flat — on plan`;
     status = "healthy";
   }
@@ -232,6 +308,14 @@ export function buildSnapshot(
     budgetPercent,
     status,
     statusLabel,
+    isFlatPlan,
     timestamp: new Date().toISOString(),
+    allowance,
   };
+}
+
+function formatCompact(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(n % 1_000 === 0 ? 0 : 1)}K`;
+  return String(n);
 }

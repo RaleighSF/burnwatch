@@ -14,9 +14,18 @@ import type {
   TrackedService,
   ServiceRiskCategory,
 } from "./core/types.js";
-import type { DetectionResult } from "./detection/detector.js";
+import { type DetectionResult, findEnvFiles, parseEnvKeys } from "./detection/detector.js";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { readGlobalConfig, writeGlobalConfig } from "./core/config.js";
-import { fetchJson } from "./services/base.js";
+import { probeService, hasProbe } from "./probes.js";
+
+/** Format large numbers with K/M suffixes */
+function formatUnits(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(n % 1_000 === 0 ? 0 : 1)}K`;
+  return String(n);
+}
 
 /** Risk categories in display order: LLMs first, then usage-based, infra, flat-rate */
 const RISK_ORDER: ServiceRiskCategory[] = ["llm", "usage", "infra", "flat"];
@@ -34,7 +43,6 @@ const API_KEY_HINTS: Record<string, string> = {
   openai: "Org key: platform.openai.com -> Settings -> API Keys",
   vercel: "Token: vercel.com/account/tokens",
   supabase: "Service role key: supabase.com/dashboard -> Settings -> API",
-  stripe: "Secret key: dashboard.stripe.com -> Developers -> API Keys",
   scrapfly: "API key: scrapfly.io/dashboard",
 };
 
@@ -77,29 +85,31 @@ function ask(rl: readline.Interface, question: string): Promise<string> {
   });
 }
 
-/** Try to auto-detect plan from Scrapfly API */
-async function autoDetectScrapflyPlan(
-  apiKey: string,
-): Promise<string | null> {
-  try {
-    const result = await fetchJson<{
-      subscription?: { plan?: { name?: string } };
-    }>(`https://api.scrapfly.io/account?key=${apiKey}`);
-
-    if (result.ok && result.data?.subscription?.plan?.name) {
-      return result.data.subscription.plan.name;
-    }
-  } catch {
-    // Ignore errors
-  }
-  return null;
-}
-
-/** Scan environment for API keys matching service env patterns */
-function findEnvKey(service: ServiceDefinition): string | undefined {
+/** Scan environment + .env files on disk for API keys matching service env patterns */
+function findEnvKey(service: ServiceDefinition, projectRoot: string = process.cwd()): string | undefined {
+  // Check process.env first
   for (const pattern of service.envPatterns) {
     const val = process.env[pattern];
     if (val && val.length > 0) return val;
+  }
+  // Scan .env files on disk (agent context may not have them in process.env)
+  if (projectRoot) {
+    const envFiles = findEnvFiles(projectRoot, 3);
+    for (const filePath of envFiles) {
+      try {
+        const content = fs.readFileSync(filePath, "utf-8");
+        for (const pattern of service.envPatterns) {
+          // Match: KEY=value or export KEY=value, with optional quotes
+          const regex = new RegExp(`^(?:export\\s+)?${pattern}\\s*=\\s*(.+)$`, "m");
+          const match = content.match(regex);
+          if (match?.[1]) {
+            return match[1].trim().replace(/^["']|["']$/g, "");
+          }
+        }
+      } catch {
+        // Skip unreadable files
+      }
+    }
   }
   return undefined;
 }
@@ -115,9 +125,9 @@ export interface InteractiveInitResult {
  * defaults automatically: default plan, env var keys, budget = plan cost.
  * Used when stdin is not a TTY (e.g., Claude Code, piped input).
  */
-export function autoConfigureServices(
+export async function autoConfigureServices(
   detected: DetectionResult[],
-): InteractiveInitResult {
+): Promise<InteractiveInitResult> {
   const services: Record<string, TrackedService> = {};
   const groups = groupByRisk(detected);
   const globalConfig = readGlobalConfig();
@@ -155,23 +165,56 @@ export function autoConfigureServices(
         } else if (defaultPlan.suggestedBudget !== undefined) {
           tracked.budget = defaultPlan.suggestedBudget;
         }
+
+        // Credit-pool services: track unit allowance, not just dollars
+        if (defaultPlan.includedUnits !== undefined && defaultPlan.unitName) {
+          tracked.allowance = {
+            included: defaultPlan.includedUnits,
+            unitName: defaultPlan.unitName,
+          };
+        }
       }
 
       // Check for existing API key in global config or environment
       const existingKey = globalConfig.services[service.id]?.apiKey;
       const envKey = findEnvKey(service);
       let keySource = "";
+      let apiKey: string | undefined;
 
       if (existingKey) {
         tracked.hasApiKey = true;
+        apiKey = existingKey;
         keySource = " (key: global config)";
       } else if (envKey) {
         tracked.hasApiKey = true;
+        apiKey = envKey;
         if (!globalConfig.services[service.id]) {
           globalConfig.services[service.id] = {};
         }
         globalConfig.services[service.id]!.apiKey = envKey;
         keySource = ` (key: ${service.envPatterns[0]})`;
+      }
+
+      // If we have a key and a probe, try to auto-detect the plan
+      if (apiKey && hasProbe(service.id)) {
+        try {
+          const probe = await probeService(service.id, apiKey, plans);
+          if (probe?.matchedPlan && probe.confidence === "high") {
+            const mp = probe.matchedPlan;
+            tracked.planName = mp.name;
+            if (mp.type === "flat" && mp.monthlyBase !== undefined) {
+              tracked.planCost = mp.monthlyBase;
+              tracked.budget = mp.monthlyBase;
+            } else if (mp.suggestedBudget !== undefined) {
+              tracked.budget = mp.suggestedBudget;
+            }
+            if (mp.includedUnits !== undefined && mp.unitName) {
+              tracked.allowance = { included: mp.includedUnits, unitName: mp.unitName };
+            }
+          }
+        } catch {
+          // Probe failed — use defaults
+        }
       }
 
       const tierLabel = tracked.hasApiKey
@@ -180,8 +223,11 @@ export function autoConfigureServices(
           ? "CALC"
           : "BLIND";
       const planStr = tracked.planName ? ` ${tracked.planName}` : "";
+      const trackingStr = tracked.allowance
+        ? `$${tracked.budget}/mo | ${formatUnits(tracked.allowance.included)} ${tracked.allowance.unitName}`
+        : `$${tracked.budget}/mo`;
       console.log(
-        `    ${service.name}:${planStr} | ${tierLabel} | $${tracked.budget}/mo${keySource}`,
+        `    ${service.name}:${planStr} | ${tierLabel} | ${trackingStr}${keySource}`,
       );
 
       services[service.id] = tracked;
@@ -256,31 +302,86 @@ export async function runInteractiveInit(
         continue;
       }
 
-      // --- Plan selection ---
-      const defaultIndex = plans.findIndex((p) => p.default);
-      console.log("");
-      for (let i = 0; i < plans.length; i++) {
-        const plan = plans[i]!;
-        const marker = i === defaultIndex ? " *" : "";
-        const costStr =
-          plan.type === "exclude"
-            ? ""
-            : plan.monthlyBase !== undefined
-              ? ` - $${plan.monthlyBase}/mo`
-              : " - variable";
-        console.log(`    ${i + 1}) ${plan.name}${costStr}${marker}`);
+      // --- Step 1: Find API key (env vars, global config, or ask) ---
+      let apiKey: string | undefined;
+
+      const existingKey = globalConfig.services[service.id]?.apiKey;
+      const envKey = findEnvKey(service);
+
+      if (existingKey) {
+        apiKey = existingKey;
+        console.log(`  API key: found in global config`);
+      } else if (envKey) {
+        apiKey = envKey;
+        console.log(`  API key: found in environment (${service.envPatterns[0]})`);
+        if (!globalConfig.services[service.id]) {
+          globalConfig.services[service.id] = {};
+        }
+        globalConfig.services[service.id]!.apiKey = envKey;
       }
 
-      const defaultChoice =
-        defaultIndex >= 0 ? String(defaultIndex + 1) : "1";
-      const answer = await ask(
-        rl,
-        `  Which plan? [${defaultChoice}]: `,
-      );
+      // --- Step 2: If we have a key AND a probe exists, try auto-discovery ---
+      let chosen: PlanTier | undefined;
 
-      const choiceIndex = (answer === "" ? parseInt(defaultChoice) : parseInt(answer)) - 1;
-      const chosen =
-        plans[choiceIndex] ?? plans[defaultIndex >= 0 ? defaultIndex : 0]!;
+      if (apiKey && hasProbe(service.id)) {
+        console.log("  Probing API...");
+        const probe = await probeService(service.id, apiKey, plans);
+
+        if (probe) {
+          console.log(`  ${probe.summary}`);
+
+          if (probe.confidence === "high" && probe.matchedPlan) {
+            // Plan detected — confirm with user
+            const plan = probe.matchedPlan;
+            const costStr = plan.monthlyBase !== undefined ? `$${plan.monthlyBase}/mo` : "variable";
+            const unitsStr = plan.includedUnits && plan.unitName
+              ? `, ${formatUnits(plan.includedUnits)} ${plan.unitName}`
+              : "";
+            const confirm = await ask(
+              rl,
+              `  Detected: ${plan.name} (${costStr}${unitsStr}). Correct? [Y/n]: `,
+            );
+            if (confirm === "" || confirm.toLowerCase().startsWith("y")) {
+              chosen = plan;
+            }
+          } else if (probe.confidence === "medium") {
+            // Usage data found but plan not certain — show it, still ask
+            if (probe.usage?.spend !== undefined) {
+              console.log(`  Current spend: $${probe.usage.spend.toFixed(2)}`);
+            }
+            // Fall through to plan selection with context
+          }
+          // "low" confidence — key works but no useful data, fall through
+        }
+      }
+
+      // --- Step 3: If no auto-detect or user said no, show plan list ---
+      if (!chosen) {
+        const defaultIndex = plans.findIndex((p) => p.default);
+        console.log("");
+        for (let i = 0; i < plans.length; i++) {
+          const plan = plans[i]!;
+          const marker = i === defaultIndex ? " *" : "";
+          const costStr =
+            plan.type === "exclude"
+              ? ""
+              : plan.monthlyBase !== undefined
+                ? ` - $${plan.monthlyBase}/mo`
+                : " - variable";
+          console.log(`    ${i + 1}) ${plan.name}${costStr}${marker}`);
+        }
+
+        const defaultChoice =
+          defaultIndex >= 0 ? String(defaultIndex + 1) : "1";
+        const answer = await ask(
+          rl,
+          `  Which plan? [${defaultChoice}]: `,
+        );
+
+        const choiceIndex = (answer === "" ? parseInt(defaultChoice) : parseInt(answer)) - 1;
+        chosen =
+          plans[choiceIndex] ?? plans[defaultIndex >= 0 ? defaultIndex : 0]!;
+      }
 
       if (chosen.type === "exclude") {
         services[service.id] = {
@@ -298,7 +399,7 @@ export async function runInteractiveInit(
       const tracked: TrackedService = {
         serviceId: service.id,
         detectedVia: det.sources,
-        hasApiKey: false,
+        hasApiKey: !!apiKey,
         firstDetected: new Date().toISOString(),
         planName: chosen.name,
       };
@@ -307,52 +408,41 @@ export async function runInteractiveInit(
         tracked.planCost = chosen.monthlyBase;
       }
 
-      // --- API key (LIVE-capable services) ---
-      if (service.apiTier === "live") {
-        const existingKey = globalConfig.services[service.id]?.apiKey;
-        const envKey = findEnvKey(service);
+      // Credit-pool services: track unit allowance
+      if (chosen.includedUnits !== undefined && chosen.unitName) {
+        tracked.allowance = {
+          included: chosen.includedUnits,
+          unitName: chosen.unitName,
+        };
+      }
 
-        if (existingKey) {
-          console.log(`  API key: found in global config`);
+      // --- Step 4: If we still don't have a key, offer to provide one ---
+      if (!apiKey && hasProbe(service.id)) {
+        const hint = API_KEY_HINTS[service.id];
+        if (hint) console.log(`  ${hint}`);
+        const keyAnswer = await ask(
+          rl,
+          `  API key for real-time tracking (Enter to skip): `,
+        );
+        if (keyAnswer) {
           tracked.hasApiKey = true;
-        } else if (envKey) {
-          console.log(`  API key: found in environment (${service.envPatterns[0]})`);
-          tracked.hasApiKey = true;
+          apiKey = keyAnswer;
           if (!globalConfig.services[service.id]) {
             globalConfig.services[service.id] = {};
           }
-          globalConfig.services[service.id]!.apiKey = envKey;
-        } else {
-          const hint = API_KEY_HINTS[service.id];
-          if (hint) console.log(`  ${hint}`);
-          const keyAnswer = await ask(
-            rl,
-            `  API key for real-time tracking (Enter to skip): `,
-          );
-          if (keyAnswer) {
-            tracked.hasApiKey = true;
-            if (!globalConfig.services[service.id]) {
-              globalConfig.services[service.id] = {};
-            }
-            globalConfig.services[service.id]!.apiKey = keyAnswer;
-          }
-        }
+          globalConfig.services[service.id]!.apiKey = keyAnswer;
 
-        // Auto-detect plan for Scrapfly
-        if (service.autoDetectPlan && service.id === "scrapfly" && tracked.hasApiKey) {
-          const key = globalConfig.services[service.id]?.apiKey;
-          if (key) {
-            console.log("  Detecting plan from API...");
-            const planName = await autoDetectScrapflyPlan(key);
-            if (planName) {
-              console.log(`  -> Detected plan: ${planName}`);
-              tracked.planName = planName;
+          // Now that we have a key, probe to enrich tracking data
+          if (hasProbe(service.id)) {
+            const probe = await probeService(service.id, keyAnswer, plans);
+            if (probe?.usage) {
+              console.log(`  ${probe.summary}`);
             }
           }
         }
       }
 
-      // --- Budget (always set, never skip) ---
+      // --- Step 5: Budget (always set, never skip) ---
       const defaultBudget = chosen.monthlyBase ?? chosen.suggestedBudget ?? 0;
 
       const budgetAnswer = await ask(
@@ -373,8 +463,11 @@ export async function runInteractiveInit(
         : tracked.planCost !== undefined
           ? "CALC"
           : "BLIND";
+      const allowanceStr = tracked.allowance
+        ? ` | ${formatUnits(tracked.allowance.included)} ${tracked.allowance.unitName}`
+        : "";
       console.log(
-        `  -> ${service.name}: ${tracked.planName} | ${tierLabel} | $${tracked.budget}/mo`,
+        `  -> ${service.name}: ${tracked.planName} | ${tierLabel} | $${tracked.budget}/mo${allowanceStr}`,
       );
     }
   }

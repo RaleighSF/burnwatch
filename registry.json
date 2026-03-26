@@ -178,35 +178,6 @@
       "docsUrl": "https://supabase.com/pricing",
       "lastVerified": "2026-03-24"
     },
-    "stripe": {
-      "id": "stripe",
-      "name": "Stripe",
-      "packageNames": ["stripe", "@stripe/stripe-js", "@stripe/react-stripe-js"],
-      "envPatterns": ["STRIPE_SECRET_KEY", "STRIPE_PUBLISHABLE_KEY", "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY", "STRIPE_WEBHOOK_SECRET"],
-      "importPatterns": ["stripe"],
-      "mentionKeywords": ["stripe", "stripe payments", "stripe checkout"],
-      "billingModel": "percentage",
-      "scalingShape": "percentage",
-      "apiTier": "live",
-      "apiEndpoint": "https://api.stripe.com/v1/balance",
-      "pricing": {
-        "formula": "transaction_volume * 0.029 + transaction_count * 0.30",
-        "unitRate": 0.029,
-        "unitName": "transaction"
-      },
-      "plans": [
-        { "name": "Standard (2.9% + 30¢)", "type": "usage", "requiresKey": true, "default": true, "suggestedBudget": 50 },
-        { "name": "Don't track for this project", "type": "exclude" }
-      ],
-      "gotchas": [
-        "2.9% + $0.30 per successful card charge — this is processing fees, not SaaS cost",
-        "International cards and currency conversion add extra fees",
-        "Disputes (chargebacks) cost $15 each regardless of outcome"
-      ],
-      "docsUrl": "https://stripe.com/pricing",
-      "lastVerified": "2026-03-24",
-      "pricingNotes": "Track as processing fees, not subscription cost"
-    },
     "scrapfly": {
       "id": "scrapfly",
       "name": "Scrapfly",
@@ -224,11 +195,10 @@
         "unitName": "credit"
       },
       "plans": [
-        { "name": "Discovery (Free, 1K credits)", "type": "flat", "monthlyBase": 0 },
-        { "name": "Starter ($30/mo, 200K credits)", "type": "flat", "monthlyBase": 30 },
-        { "name": "Scale ($80/mo, 1M credits)", "type": "flat", "monthlyBase": 80, "default": true },
-        { "name": "Business ($200/mo, 5M credits)", "type": "flat", "monthlyBase": 200 },
-        { "name": "Enterprise (custom)", "type": "usage", "requiresKey": true },
+        { "name": "Discovery ($30/mo, 200K credits)", "type": "flat", "monthlyBase": 30, "includedUnits": 200000, "unitName": "credits" },
+        { "name": "Pro ($100/mo, 1M credits)", "type": "flat", "monthlyBase": 100, "includedUnits": 1000000, "unitName": "credits", "default": true },
+        { "name": "Startup ($250/mo, 2.5M credits)", "type": "flat", "monthlyBase": 250, "includedUnits": 2500000, "unitName": "credits" },
+        { "name": "Enterprise ($500/mo, 5.5M credits)", "type": "flat", "monthlyBase": 500, "includedUnits": 5500000, "unitName": "credits" },
         { "name": "Don't track for this project", "type": "exclude" }
       ],
       "autoDetectPlan": true,
@@ -250,21 +220,23 @@
       "mentionKeywords": ["browserbase", "stagehand"],
       "billingModel": "per_unit",
       "scalingShape": "linear",
-      "apiTier": "est",
+      "apiTier": "live",
       "pricing": {
-        "formula": "sessions * per_session_rate",
-        "unitName": "session"
+        "formula": "browser_hours * per_hour_rate + proxy_gb * per_gb_rate",
+        "unitRate": 0.10,
+        "unitName": "browser-hour"
       },
       "plans": [
-        { "name": "Hobby (Free, 100 sessions)", "type": "flat", "monthlyBase": 0, "default": true },
-        { "name": "Startup ($150/mo)", "type": "flat", "monthlyBase": 150 },
-        { "name": "Scale ($600/mo)", "type": "flat", "monthlyBase": 600 },
-        { "name": "Enterprise (custom)", "type": "usage", "requiresKey": false },
+        { "name": "Free (1 browser-hour)", "type": "flat", "monthlyBase": 0, "default": true },
+        { "name": "Developer ($20/mo)", "type": "flat", "monthlyBase": 20 },
+        { "name": "Startup ($99/mo)", "type": "flat", "monthlyBase": 99 },
+        { "name": "Scale (custom)", "type": "usage", "requiresKey": false },
         { "name": "Don't track for this project", "type": "exclude" }
       ],
       "gotchas": [
-        "Session duration affects cost — long-running browser sessions burn more",
-        "Concurrent session limits may cause queuing on lower plans"
+        "Billed per browser-hour (metered by the minute), NOT per session",
+        "Proxy bandwidth is a separate charge at $10-12/GB",
+        "Concurrent session limits vary by plan (3 free, 25 dev, 100 startup)"
       ],
       "alternatives": ["playwright", "puppeteer"],
       "docsUrl": "https://docs.browserbase.com/guides/pricing",
@@ -311,6 +283,7 @@
       "apiTier": "est",
       "pricing": {
         "formula": "emails_sent * per_email_rate",
+        "unitRate": 0.001,
         "unitName": "email"
       },
       "plans": [
@@ -340,11 +313,13 @@
       "apiTier": "calc",
       "pricing": {
         "formula": "plan_base + function_runs_overage",
+        "unitRate": 0.01,
         "unitName": "function run"
       },
       "plans": [
         { "name": "Free (5K runs/mo)", "type": "flat", "monthlyBase": 0, "default": true },
         { "name": "Launch ($50/mo)", "type": "flat", "monthlyBase": 50 },
+        { "name": "Pro ($75/mo)", "type": "flat", "monthlyBase": 75 },
         { "name": "Growth ($150/mo)", "type": "flat", "monthlyBase": 150 },
         { "name": "Enterprise (custom)", "type": "usage", "requiresKey": false },
         { "name": "Don't track for this project", "type": "exclude" }
@@ -385,34 +360,291 @@
       "docsUrl": "https://posthog.com/pricing",
       "lastVerified": "2026-03-24"
     },
-    "aws": {
-      "id": "aws",
-      "name": "Amazon Web Services",
-      "packageNames": ["@aws-sdk/client-s3", "@aws-sdk/client-ecs", "@aws-sdk/client-ssm", "@aws-sdk/client-lambda", "aws-sdk"],
-      "envPatterns": ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_REGION", "AWS_SESSION_TOKEN"],
-      "importPatterns": ["@aws-sdk/"],
-      "mentionKeywords": ["aws", "amazon web services", "s3", "ecs", "lambda"],
-      "billingModel": "compute",
-      "scalingShape": "linear",
-      "apiTier": "blind",
+    "firebase": {
+      "id": "firebase",
+      "name": "Firebase / Google Cloud",
+      "packageNames": ["firebase", "firebase-admin", "@firebase/app", "firebase-functions"],
+      "envPatterns": ["FIREBASE_API_KEY", "FIREBASE_PROJECT_ID", "GOOGLE_APPLICATION_CREDENTIALS", "FIREBASE_SERVICE_ACCOUNT"],
+      "importPatterns": ["firebase", "firebase-admin", "@firebase/"],
+      "mentionKeywords": ["firebase", "firestore", "firebase auth", "firebase storage", "cloud functions"],
+      "billingModel": "tiered",
+      "scalingShape": "tiered_jump",
+      "apiTier": "calc",
       "pricing": {
-        "formula": "Varies by service — S3, ECS, Lambda, etc. each have distinct pricing"
+        "formula": "plan_base + reads_overage + writes_overage + storage_overage + bandwidth_overage",
+        "unitName": "operation"
       },
       "plans": [
-        { "name": "Pay-as-you-go", "type": "usage", "requiresKey": false, "default": true, "suggestedBudget": 50 },
-        { "name": "AWS Free Tier (12 months)", "type": "flat", "monthlyBase": 0 },
-        { "name": "Set custom budget estimate", "type": "usage", "requiresKey": false },
+        { "name": "Spark (Free)", "type": "flat", "monthlyBase": 0, "default": true },
+        { "name": "Blaze (pay-as-you-go)", "type": "usage", "requiresKey": false, "suggestedBudget": 25 },
         { "name": "Don't track for this project", "type": "exclude" }
       ],
       "gotchas": [
-        "AWS Cost Explorer API exists but requires IAM permissions and is itself billed",
-        "Data transfer costs are the most common surprise on AWS bills",
-        "ECS Fargate pricing is per-vCPU-hour and per-GB-hour"
+        "Blaze plan has no spending cap by default — set budget alerts in Google Cloud Console",
+        "Firestore reads at 500K+ per day can spike costs quickly",
+        "Cloud Functions billed per invocation + compute time"
       ],
-      "alternatives": ["gcp", "azure", "fly.io"],
-      "docsUrl": "https://aws.amazon.com/pricing/",
-      "lastVerified": "2026-03-24",
-      "pricingNotes": "Complex multi-service billing — recommend tracking via AWS Cost Explorer directly"
+      "alternatives": ["supabase", "neon"],
+      "docsUrl": "https://firebase.google.com/pricing",
+      "lastVerified": "2026-03-25"
+    },
+    "cloudflare": {
+      "id": "cloudflare",
+      "name": "Cloudflare",
+      "packageNames": ["wrangler", "@cloudflare/workers-types", "@cloudflare/ai"],
+      "envPatterns": ["CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID", "CF_API_TOKEN"],
+      "importPatterns": ["@cloudflare/"],
+      "mentionKeywords": ["cloudflare", "cloudflare workers", "wrangler", "cloudflare r2", "cloudflare d1"],
+      "billingModel": "compute",
+      "scalingShape": "tiered_jump",
+      "apiTier": "calc",
+      "pricing": {
+        "formula": "plan_base + workers_requests + r2_storage + d1_reads",
+        "unitName": "request"
+      },
+      "plans": [
+        { "name": "Free (100K requests/day)", "type": "flat", "monthlyBase": 0, "default": true },
+        { "name": "Workers Paid ($5/mo)", "type": "flat", "monthlyBase": 5 },
+        { "name": "Pro ($20/mo)", "type": "flat", "monthlyBase": 20 },
+        { "name": "Business ($200/mo)", "type": "flat", "monthlyBase": 200 },
+        { "name": "Don't track for this project", "type": "exclude" }
+      ],
+      "gotchas": [
+        "Free tier: 100K Workers requests/day, 10ms CPU time limit",
+        "R2 storage: free egress but charges for storage and operations",
+        "D1 database has separate read/write unit pricing"
+      ],
+      "alternatives": ["vercel", "fly.io"],
+      "docsUrl": "https://developers.cloudflare.com/workers/platform/pricing/",
+      "lastVerified": "2026-03-25"
+    },
+    "neon": {
+      "id": "neon",
+      "name": "Neon Postgres",
+      "packageNames": ["@neondatabase/serverless", "@neondatabase/vercel-postgres-compat"],
+      "envPatterns": ["DATABASE_URL", "NEON_DATABASE_URL", "POSTGRES_URL"],
+      "importPatterns": ["@neondatabase/serverless", "@neondatabase/"],
+      "mentionKeywords": ["neon", "neon postgres", "neon database"],
+      "billingModel": "tiered",
+      "scalingShape": "tiered_jump",
+      "apiTier": "calc",
+      "pricing": {
+        "formula": "plan_base + compute_hours_overage + storage_overage",
+        "unitName": "compute-hour"
+      },
+      "plans": [
+        { "name": "Free (0.5 GiB storage)", "type": "flat", "monthlyBase": 0, "default": true },
+        { "name": "Launch ($19/mo)", "type": "flat", "monthlyBase": 19 },
+        { "name": "Scale ($69/mo)", "type": "flat", "monthlyBase": 69 },
+        { "name": "Business ($700/mo)", "type": "flat", "monthlyBase": 700 },
+        { "name": "Don't track for this project", "type": "exclude" }
+      ],
+      "gotchas": [
+        "Free tier auto-suspends after 5 minutes of inactivity — cold starts on reconnect",
+        "Compute hours scale with active connections and query load",
+        "Storage charges persist even when compute is suspended"
+      ],
+      "alternatives": ["supabase", "planetscale", "firebase"],
+      "docsUrl": "https://neon.tech/pricing",
+      "lastVerified": "2026-03-25"
+    },
+    "mongodb-atlas": {
+      "id": "mongodb-atlas",
+      "name": "MongoDB Atlas",
+      "packageNames": ["mongodb", "mongoose"],
+      "envPatterns": ["MONGODB_URI", "MONGO_URI", "MONGODB_URL", "MONGO_URL", "DATABASE_URL"],
+      "importPatterns": ["mongodb", "mongoose"],
+      "mentionKeywords": ["mongodb", "mongo", "mongoose", "atlas"],
+      "billingModel": "tiered",
+      "scalingShape": "tiered_jump",
+      "apiTier": "calc",
+      "pricing": {
+        "formula": "plan_base + storage_overage + data_transfer",
+        "unitName": "GB"
+      },
+      "plans": [
+        { "name": "M0 Free (512 MB)", "type": "flat", "monthlyBase": 0, "default": true },
+        { "name": "Shared (M2, $9/mo)", "type": "flat", "monthlyBase": 9 },
+        { "name": "Shared (M5, $25/mo)", "type": "flat", "monthlyBase": 25 },
+        { "name": "Dedicated (M10+)", "type": "usage", "requiresKey": false, "suggestedBudget": 60 },
+        { "name": "Don't track for this project", "type": "exclude" }
+      ],
+      "gotchas": [
+        "M0 free tier limited to 512 MB storage and shared resources",
+        "Data transfer between regions is billed per GB",
+        "Atlas Search adds per-hour compute charges"
+      ],
+      "alternatives": ["neon", "supabase", "firebase"],
+      "docsUrl": "https://www.mongodb.com/pricing",
+      "lastVerified": "2026-03-25"
+    },
+    "twilio": {
+      "id": "twilio",
+      "name": "Twilio",
+      "packageNames": ["twilio"],
+      "envPatterns": ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_PHONE_NUMBER"],
+      "importPatterns": ["twilio"],
+      "mentionKeywords": ["twilio", "twilio sms", "twilio voice"],
+      "billingModel": "per_unit",
+      "scalingShape": "linear",
+      "apiTier": "calc",
+      "pricing": {
+        "formula": "sms_count * per_sms_rate + voice_minutes * per_minute_rate",
+        "unitRate": 0.0079,
+        "unitName": "SMS"
+      },
+      "plans": [
+        { "name": "Pay-as-you-go", "type": "usage", "requiresKey": false, "default": true, "suggestedBudget": 20 },
+        { "name": "Don't track for this project", "type": "exclude" }
+      ],
+      "gotchas": [
+        "SMS pricing varies by country — US outbound is $0.0079/msg but international can be 10x+",
+        "Phone number rental is $1.15/mo per number",
+        "Voice calls billed per minute with different rates for inbound vs outbound"
+      ],
+      "alternatives": ["resend", "sendgrid"],
+      "docsUrl": "https://www.twilio.com/en-us/pricing",
+      "lastVerified": "2026-03-25"
+    },
+    "sendgrid": {
+      "id": "sendgrid",
+      "name": "SendGrid",
+      "packageNames": ["@sendgrid/mail", "@sendgrid/client"],
+      "envPatterns": ["SENDGRID_API_KEY"],
+      "importPatterns": ["@sendgrid/mail", "@sendgrid/"],
+      "mentionKeywords": ["sendgrid"],
+      "billingModel": "tiered",
+      "scalingShape": "tiered_jump",
+      "apiTier": "calc",
+      "pricing": {
+        "formula": "plan_base + overage_per_email",
+        "unitRate": 0.001,
+        "unitName": "email"
+      },
+      "plans": [
+        { "name": "Free (100 emails/day)", "type": "flat", "monthlyBase": 0, "default": true },
+        { "name": "Essentials ($19.95/mo)", "type": "flat", "monthlyBase": 19.95 },
+        { "name": "Pro ($89.95/mo)", "type": "flat", "monthlyBase": 89.95 },
+        { "name": "Don't track for this project", "type": "exclude" }
+      ],
+      "gotchas": [
+        "Free tier: 100 emails/day max",
+        "Dedicated IP costs extra ($20-80/mo) and required for high deliverability"
+      ],
+      "alternatives": ["resend", "postmark", "ses"],
+      "docsUrl": "https://sendgrid.com/en-us/pricing",
+      "lastVerified": "2026-03-25"
+    },
+    "sentry": {
+      "id": "sentry",
+      "name": "Sentry",
+      "packageNames": ["@sentry/nextjs", "@sentry/node", "@sentry/react", "@sentry/browser"],
+      "envPatterns": ["SENTRY_DSN", "NEXT_PUBLIC_SENTRY_DSN", "SENTRY_AUTH_TOKEN", "SENTRY_ORG"],
+      "importPatterns": ["@sentry/nextjs", "@sentry/node", "@sentry/react", "@sentry/browser", "@sentry/"],
+      "mentionKeywords": ["sentry", "sentry error tracking"],
+      "billingModel": "tiered",
+      "scalingShape": "tiered_jump",
+      "apiTier": "calc",
+      "pricing": {
+        "formula": "plan_base + errors_overage + replays_overage",
+        "unitName": "error"
+      },
+      "plans": [
+        { "name": "Developer (Free, 5K errors)", "type": "flat", "monthlyBase": 0, "default": true },
+        { "name": "Team ($26/mo)", "type": "flat", "monthlyBase": 26 },
+        { "name": "Business ($80/mo)", "type": "flat", "monthlyBase": 80 },
+        { "name": "Don't track for this project", "type": "exclude" }
+      ],
+      "gotchas": [
+        "Error volume can spike unexpectedly during incidents — set rate limits",
+        "Session Replay and Performance Monitoring have separate quotas and pricing",
+        "Free tier: 5K errors, 10K performance units, 50 replays per month"
+      ],
+      "alternatives": ["bugsnag", "datadog", "logrocket"],
+      "docsUrl": "https://sentry.io/pricing/",
+      "lastVerified": "2026-03-25"
+    },
+    "clerk": {
+      "id": "clerk",
+      "name": "Clerk",
+      "packageNames": ["@clerk/nextjs", "@clerk/clerk-react", "@clerk/express", "@clerk/backend"],
+      "envPatterns": ["CLERK_SECRET_KEY", "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY", "CLERK_WEBHOOK_SECRET"],
+      "importPatterns": ["@clerk/nextjs", "@clerk/clerk-react", "@clerk/express", "@clerk/"],
+      "mentionKeywords": ["clerk", "clerk auth"],
+      "billingModel": "per_unit",
+      "scalingShape": "tiered_jump",
+      "apiTier": "calc",
+      "pricing": {
+        "formula": "plan_base + mau_overage",
+        "unitName": "MAU"
+      },
+      "plans": [
+        { "name": "Free (10K MAU)", "type": "flat", "monthlyBase": 0, "default": true },
+        { "name": "Pro ($25/mo)", "type": "flat", "monthlyBase": 25 },
+        { "name": "Enterprise (custom)", "type": "usage", "requiresKey": false },
+        { "name": "Don't track for this project", "type": "exclude" }
+      ],
+      "gotchas": [
+        "Free tier: 10K monthly active users, 5 social connections",
+        "Pro plan: $25/mo base + $0.02 per additional MAU beyond 10K",
+        "SMS authentication adds per-message costs"
+      ],
+      "alternatives": ["auth0", "supabase auth", "lucia"],
+      "docsUrl": "https://clerk.com/pricing",
+      "lastVerified": "2026-03-25"
+    },
+    "deepseek": {
+      "id": "deepseek",
+      "name": "DeepSeek",
+      "packageNames": ["@ai-sdk/deepseek"],
+      "envPatterns": ["DEEPSEEK_API_KEY"],
+      "importPatterns": ["@ai-sdk/deepseek"],
+      "mentionKeywords": ["deepseek", "deepseek-r1", "deepseek-v3"],
+      "billingModel": "token_usage",
+      "scalingShape": "linear",
+      "apiTier": "calc",
+      "pricing": {
+        "formula": "input_tokens * input_rate + output_tokens * output_rate",
+        "unitName": "token"
+      },
+      "plans": [
+        { "name": "API Usage (pay-as-you-go)", "type": "usage", "requiresKey": false, "default": true, "suggestedBudget": 20 },
+        { "name": "Don't track for this project", "type": "exclude" }
+      ],
+      "gotchas": [
+        "Pricing significantly cheaper than OpenAI/Anthropic but rate limits may be lower",
+        "API availability can be inconsistent during high-demand periods"
+      ],
+      "alternatives": ["openai", "anthropic", "google-gemini"],
+      "docsUrl": "https://api-docs.deepseek.com/",
+      "lastVerified": "2026-03-25"
+    },
+    "replicate": {
+      "id": "replicate",
+      "name": "Replicate",
+      "packageNames": ["replicate"],
+      "envPatterns": ["REPLICATE_API_TOKEN"],
+      "importPatterns": ["replicate"],
+      "mentionKeywords": ["replicate", "replicate ai"],
+      "billingModel": "compute",
+      "scalingShape": "linear",
+      "apiTier": "calc",
+      "pricing": {
+        "formula": "compute_seconds * gpu_rate",
+        "unitRate": 0.001,
+        "unitName": "prediction"
+      },
+      "plans": [
+        { "name": "Pay-as-you-go", "type": "usage", "requiresKey": false, "default": true, "suggestedBudget": 25 },
+        { "name": "Don't track for this project", "type": "exclude" }
+      ],
+      "gotchas": [
+        "GPU pricing varies widely by model — Flux image gen vs LLM inference",
+        "Cold starts can incur minimum billing even for quick predictions"
+      ],
+      "alternatives": ["openai", "anthropic"],
+      "docsUrl": "https://replicate.com/pricing",
+      "lastVerified": "2026-03-25"
     }
   }
 }

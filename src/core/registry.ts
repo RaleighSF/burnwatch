@@ -12,18 +12,35 @@ interface RegistryFile {
 }
 
 let cachedRegistry: Map<string, ServiceDefinition> | null = null;
+let cachedRegistryPath: string | null = null;
+let cachedRegistryMtime: number | null = null;
 
 /**
  * Load the service registry.
  * Checks project-local override first, then falls back to bundled registry.
+ * Invalidates cache when the registry file has been modified (for long-running processes like MCP server).
  */
 export function loadRegistry(projectRoot?: string): Map<string, ServiceDefinition> {
+  // Check cache validity — invalidate if the file has been modified
+  if (cachedRegistry && cachedRegistryPath && cachedRegistryMtime !== null) {
+    try {
+      const stat = fs.statSync(cachedRegistryPath);
+      if (stat.mtimeMs !== cachedRegistryMtime) {
+        cachedRegistry = null;
+      }
+    } catch {
+      // File gone — invalidate
+      cachedRegistry = null;
+    }
+  }
+
   if (cachedRegistry) return cachedRegistry;
 
   const registry = new Map<string, ServiceDefinition>();
 
   // Load bundled registry (shipped with package)
   // Try multiple possible locations — depends on whether running from src/ or dist/
+  let resolvedPath: string | null = null;
   const candidates = [
     path.resolve(__dirname, "../../registry.json"),  // from src/core/
     path.resolve(__dirname, "../registry.json"),      // from dist/
@@ -31,19 +48,33 @@ export function loadRegistry(projectRoot?: string): Map<string, ServiceDefinitio
   for (const candidate of candidates) {
     if (fs.existsSync(candidate)) {
       loadRegistryFile(candidate, registry);
+      resolvedPath = candidate;
       break;
     }
   }
 
-  // Load project-local override (if exists)
+  // Load project-local override (if exists) — takes precedence for mtime tracking
   if (projectRoot) {
     const localPath = path.join(projectRoot, ".burnwatch", "registry.json");
     if (fs.existsSync(localPath)) {
       loadRegistryFile(localPath, registry);
+      resolvedPath = localPath;
     }
   }
 
   cachedRegistry = registry;
+
+  // Track mtime for cache invalidation (important for long-running MCP server)
+  if (resolvedPath) {
+    try {
+      cachedRegistryPath = resolvedPath;
+      cachedRegistryMtime = fs.statSync(resolvedPath).mtimeMs;
+    } catch {
+      cachedRegistryPath = null;
+      cachedRegistryMtime = null;
+    }
+  }
+
   return registry;
 }
 
@@ -65,6 +96,8 @@ function loadRegistryFile(
 /** Clear the cached registry (for testing). */
 export function clearRegistryCache(): void {
   cachedRegistry = null;
+  cachedRegistryPath = null;
+  cachedRegistryMtime = null;
 }
 
 /** Get a single service definition by ID. */

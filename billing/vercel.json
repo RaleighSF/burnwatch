@@ -1,0 +1,85 @@
+{
+  "$schema": "./billing.schema.json",
+  "serviceId": "vercel",
+  "name": "Vercel",
+  "lastVerified": "2026-03-25",
+  "pricingUrl": "https://vercel.com/pricing",
+  "notes": "Pro plan is $20/mo base but overages on function invocations, bandwidth, build minutes, and edge requests can spike. Most Next.js dev projects stay well within Pro limits. Function execution time (GB-hours) is typically the first overage dimension hit.",
+  "billingDimensions": [
+    {
+      "id": "function_invocations",
+      "name": "Serverless function invocations",
+      "unit": "invocation",
+      "ratePerUnit": 0.60,
+      "ratePer": 1000000
+    },
+    {
+      "id": "function_gb_hours",
+      "name": "Function execution (GB-hours)",
+      "unit": "GB-hour",
+      "ratePerUnit": 0.18,
+      "ratePer": 1
+    },
+    {
+      "id": "bandwidth",
+      "name": "Bandwidth",
+      "unit": "GB",
+      "ratePerUnit": 0.15,
+      "ratePer": 1
+    },
+    {
+      "id": "edge_requests",
+      "name": "Edge middleware invocations",
+      "unit": "invocation",
+      "ratePerUnit": 2.00,
+      "ratePer": 1000000
+    },
+    {
+      "id": "image_optimizations",
+      "name": "Image optimizations",
+      "unit": "image",
+      "ratePerUnit": 5.00,
+      "ratePer": 1000
+    }
+  ],
+  "plans": [
+    {
+      "id": "hobby",
+      "name": "Hobby (Free)",
+      "monthlyBase": 0,
+      "included": {
+        "function_invocations": 100000,
+        "function_gb_hours": 100,
+        "bandwidth": 100,
+        "edge_requests": 1000000,
+        "image_optimizations": 1000
+      },
+      "hardCap": true,
+      "isDefault": true
+    },
+    {
+      "id": "pro",
+      "name": "Pro ($20/mo)",
+      "monthlyBase": 20,
+      "included": {
+        "function_invocations": 1000000,
+        "function_gb_hours": 1000,
+        "bandwidth": 1000,
+        "edge_requests": 10000000,
+        "image_optimizations": 5000
+      },
+      "overageRates": {
+        "function_invocations": 0.60,
+        "function_gb_hours": 0.18,
+        "bandwidth": 0.15,
+        "edge_requests": 2.00,
+        "image_optimizations": 5.00
+      }
+    }
+  ],
+  "typicalDevUsage": {
+    "callsPerDevHour": 0,
+    "unitsPerCall": 0,
+    "unitName": "invocations"
+  }
+}

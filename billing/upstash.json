@@ -1,0 +1,65 @@
+{
+  "$schema": "./billing.schema.json",
+  "serviceId": "upstash",
+  "name": "Upstash",
+  "lastVerified": "2026-03-25",
+  "pricingUrl": "https://upstash.com/pricing",
+  "notes": "Upstash charges per command for Redis and per message for Kafka. Redis Pro includes 500K commands/day. The free tier includes 10K commands/day. QStash (message queue) charges per message. Storage is secondary — commands are the primary billing axis.",
+  "billingDimensions": [
+    {
+      "id": "redis_commands",
+      "name": "Redis commands",
+      "unit": "command",
+      "ratePerUnit": 0.20,
+      "ratePer": 100000,
+      "variants": [
+        { "id": "standard", "name": "Standard commands", "ratePerUnit": 0.20, "ratePer": 100000, "codePatterns": ["redis", "upstash", "@upstash/redis"], "isDefault": true }
+      ]
+    },
+    {
+      "id": "redis_storage",
+      "name": "Redis storage",
+      "unit": "GB",
+      "ratePerUnit": 0.25,
+      "ratePer": 1
+    },
+    {
+      "id": "qstash_messages",
+      "name": "QStash messages",
+      "unit": "message",
+      "ratePerUnit": 1.00,
+      "ratePer": 1000,
+      "variants": [
+        { "id": "standard", "name": "Standard messages", "ratePerUnit": 1.00, "ratePer": 1000, "codePatterns": ["qstash", "@upstash/qstash", "QStash"], "isDefault": true }
+      ]
+    }
+  ],
+  "plans": [
+    {
+      "id": "free",
+      "name": "Free (10K commands/day)",
+      "monthlyBase": 0,
+      "included": { "redis_commands": 300000, "redis_storage": 0.256, "qstash_messages": 500 },
+      "hardCap": true,
+      "isDefault": true
+    },
+    {
+      "id": "pay_as_you_go",
+      "name": "Pay-as-you-go",
+      "monthlyBase": 0,
+      "overageRates": { "redis_commands": 0.20, "redis_storage": 0.25, "qstash_messages": 1.00 }
+    },
+    {
+      "id": "pro",
+      "name": "Pro ($280/mo max)",
+      "monthlyBase": 0,
+      "included": { "redis_commands": 15000000, "redis_storage": 10 },
+      "overageRates": { "redis_commands": 0.20, "redis_storage": 0.25 }
+    }
+  ],
+  "typicalDevUsage": {
+    "callsPerDevHour": 30,
+    "unitsPerCall": 1,
+    "unitName": "commands"
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "$schema": "./billing.schema.json",
+  "serviceId": "voyage-ai",
+  "name": "Voyage AI",
+  "lastVerified": "2026-03-25",
+  "pricingUrl": "https://docs.voyageai.com/pricing/",
+  "notes": "Voyage AI charges per token for embeddings and reranking. voyage-3-large is the flagship model. Reranking is charged per token of the query + documents combined. No monthly plans — pure usage-based.",
+  "billingDimensions": [
+    {
+      "id": "embedding_tokens",
+      "name": "Embedding tokens",
+      "unit": "token",
+      "ratePerUnit": 0.06,
+      "ratePer": 1000000,
+      "variants": [
+        { "id": "voyage_3_large", "name": "voyage-3-large", "ratePerUnit": 0.06, "ratePer": 1000000, "codePatterns": ["voyage-3-large", "voyage3-large"], "isDefault": true },
+        { "id": "voyage_3", "name": "voyage-3", "ratePerUnit": 0.03, "ratePer": 1000000, "codePatterns": ["voyage-3(?!-large)", "voyage3(?!-large)"] },
+        { "id": "voyage_3_lite", "name": "voyage-3-lite", "ratePerUnit": 0.02, "ratePer": 1000000, "codePatterns": ["voyage-3-lite", "voyage3-lite"] },
+        { "id": "voyage_code_3", "name": "voyage-code-3", "ratePerUnit": 0.06, "ratePer": 1000000, "codePatterns": ["voyage-code-3", "voyage-code"] }
+      ]
+    },
+    {
+      "id": "rerank_tokens",
+      "name": "Reranking tokens",
+      "unit": "token",
+      "ratePerUnit": 0.05,
+      "ratePer": 1000000,
+      "variants": [
+        { "id": "rerank_2", "name": "rerank-2", "ratePerUnit": 0.05, "ratePer": 1000000, "codePatterns": ["rerank-2", "rerank2"], "isDefault": true },
+        { "id": "rerank_2_lite", "name": "rerank-2-lite", "ratePerUnit": 0.02, "ratePer": 1000000, "codePatterns": ["rerank-2-lite", "rerank2-lite"] }
+      ]
+    }
+  ],
+  "plans": [
+    { "id": "usage", "name": "Usage-based", "monthlyBase": 0, "isDefault": true }
+  ],
+  "typicalDevUsage": {
+    "callsPerDevHour": 4,
+    "unitsPerCall": 5000,
+    "unitName": "tokens"
+  }
+}

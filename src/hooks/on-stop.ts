@@ -67,21 +67,36 @@ async function main(): Promise<void> {
     // Poll all services for current spend
     const results = await pollAllServices(trackedServices);
 
-    // Build snapshots
-    const snapshots = results.map((r) =>
-      buildSnapshot(
+    // Read session cost-impact data (accumulated from file changes)
+    const sessionImpacts = readSessionImpacts(projectRoot, input.session_id);
+
+    // Build snapshots — upgrade BLIND services to EST when we have cost-impact data
+    const snapshots = results.map((r) => {
+      const impact = sessionImpacts?.[r.serviceId];
+      // If the service is BLIND but we have cost-impact estimates, upgrade to EST
+      if (r.tier === "blind" && impact && impact.costHigh > 0) {
+        const estSpend = (impact.costLow + impact.costHigh) / 2; // midpoint
+        return buildSnapshot(
+          r.serviceId,
+          "est",
+          estSpend,
+          config.services[r.serviceId]?.budget,
+        );
+      }
+      return buildSnapshot(
         r.serviceId,
         r.tier,
         r.spend,
         config.services[r.serviceId]?.budget,
-      ),
-    );
+        undefined,
+        r.isEstimate,
+      );
+    });
 
     const blindCount = snapshots.filter((s) => s.tier === "blind").length;
     const brief = buildBrief(config.projectName, snapshots, blindCount);
 
-    // Add session cost impact data if available
-    const sessionImpacts = readSessionImpacts(projectRoot, input.session_id);
+    // Add session cost impact summary as an alert
     if (sessionImpacts && Object.keys(sessionImpacts).length > 0) {
       let totalImpactLow = 0;
       let totalImpactHigh = 0;
@@ -91,7 +106,6 @@ async function main(): Promise<void> {
         totalImpactHigh += impact.costHigh;
       }
 
-      // Add session impact as an alert in the brief
       if (totalImpactHigh > 0) {
         const rangeStr =
           totalImpactLow === totalImpactHigh

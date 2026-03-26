@@ -22,6 +22,12 @@ import { logEvent } from "../core/ledger.js";
 import { readLatestSnapshot } from "../core/ledger.js";
 import type { TrackedService } from "../core/types.js";
 import { analyzeCostImpact, formatCostImpactCard } from "../cost-impact.js";
+import {
+  readUtilizationModel,
+  writeUtilizationModel,
+  analyzeFileUtilization,
+  updateUtilizationModel,
+} from "../utilization.js";
 
 /** Session cost impact accumulator file path */
 function sessionImpactPath(projectRoot: string, sessionId: string): string {
@@ -204,6 +210,30 @@ function main(): void {
     );
   }
 
+  // --- Part 3: Update utilization model incrementally ---
+  try {
+    const relPath = path.relative(projectRoot, filePath);
+    const callSites = analyzeFileUtilization(filePath, content, projectRoot).map(
+      (cs) => ({ ...cs, filePath: relPath }),
+    );
+    const model = readUtilizationModel(projectRoot);
+    updateUtilizationModel(model, relPath, callSites, projectRoot);
+    writeUtilizationModel(model, projectRoot);
+
+    // Add overage warnings to the context
+    for (const svc of Object.values(model.services)) {
+      if (svc.projectedOverage > 0 && svc.projectedOverageCost > 5) {
+        contextParts.push(
+          `[BURNWATCH] ⚠️ ${svc.serviceName} utilization: ~${formatCompact(svc.totalMonthlyUnits)} ${svc.unitName}/mo` +
+            (svc.planIncluded ? ` (plan includes ${formatCompact(svc.planIncluded)})` : "") +
+            ` → ~$${svc.projectedOverageCost.toFixed(2)}/mo overage`,
+        );
+      }
+    }
+  } catch {
+    // Utilization update is best-effort — don't block the hook
+  }
+
   // --- Output ---
   if (contextParts.length > 0) {
     const output: HookOutput = {
@@ -215,6 +245,12 @@ function main(): void {
 
     process.stdout.write(JSON.stringify(output));
   }
+}
+
+function formatCompact(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(n % 1_000 === 0 ? 0 : 1)}K`;
+  return String(Math.round(n));
 }
 
 main();

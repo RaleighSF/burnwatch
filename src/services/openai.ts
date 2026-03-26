@@ -46,14 +46,20 @@ export const openaiConnector: BillingConnector = {
       for (const bucket of result.data.data) {
         if (bucket.results) {
           for (const r of bucket.results) {
-            totalSpend += r.amount?.value ?? 0;
+            const val = r.amount?.value;
+            if (typeof val === "number" && !isNaN(val)) {
+              totalSpend += val;
+            }
           }
         }
       }
     }
 
-    // OpenAI returns costs in cents, convert to dollars
+    // OpenAI /v1/organization/costs returns amounts in cents — convert to dollars
     totalSpend = totalSpend / 100;
+
+    // Guard against NaN from unexpected data shapes
+    if (isNaN(totalSpend)) totalSpend = 0;
 
     return {
       serviceId: "openai",

@@ -1,0 +1,49 @@
+{
+  "$schema": "./billing.schema.json",
+  "serviceId": "anthropic",
+  "name": "Anthropic (Claude)",
+  "lastVerified": "2026-03-25",
+  "pricingUrl": "https://www.anthropic.com/pricing",
+  "notes": "Token pricing varies dramatically by model (60x between Haiku and Opus). Admin API key required for billing data. Prompt caching gives 90% discount on cached input tokens. Batch API gives 50% discount.",
+  "billingDimensions": [
+    {
+      "id": "input_tokens",
+      "name": "Input tokens",
+      "unit": "token",
+      "ratePerUnit": 3.00,
+      "ratePer": 1000000,
+      "variants": [
+        { "id": "haiku", "name": "Claude 3.5 Haiku", "ratePerUnit": 0.80, "ratePer": 1000000, "codePatterns": ["haiku", "claude-3[.-]5-haiku", "claude-3-haiku"], "isDefault": false },
+        { "id": "sonnet", "name": "Claude Sonnet 4", "ratePerUnit": 3.00, "ratePer": 1000000, "codePatterns": ["sonnet", "claude-sonnet", "claude-4-sonnet"], "isDefault": true },
+        { "id": "opus", "name": "Claude Opus 4", "ratePerUnit": 15.00, "ratePer": 1000000, "codePatterns": ["opus", "claude-opus", "claude-4-opus"], "isDefault": false }
+      ]
+    },
+    {
+      "id": "output_tokens",
+      "name": "Output tokens",
+      "unit": "token",
+      "ratePerUnit": 15.00,
+      "ratePer": 1000000,
+      "variants": [
+        { "id": "haiku", "name": "Claude 3.5 Haiku", "ratePerUnit": 4.00, "ratePer": 1000000, "codePatterns": ["haiku"] },
+        { "id": "sonnet", "name": "Claude Sonnet 4", "ratePerUnit": 15.00, "ratePer": 1000000, "codePatterns": ["sonnet"], "isDefault": true },
+        { "id": "opus", "name": "Claude Opus 4", "ratePerUnit": 75.00, "ratePer": 1000000, "codePatterns": ["opus"] }
+      ]
+    }
+  ],
+  "plans": [
+    { "id": "api_usage", "name": "API Usage", "monthlyBase": 0, "isDefault": true },
+    { "id": "max_100", "name": "Max ($100/mo)", "monthlyBase": 100 },
+    { "id": "max_200", "name": "Max ($200/mo)", "monthlyBase": 200 },
+    { "id": "pro", "name": "Pro ($20/mo)", "monthlyBase": 20 }
+  ],
+  "costMultipliers": [
+    { "id": "opus_model", "name": "Opus model usage", "factor": 5, "description": "Opus costs ~5x Sonnet for input and ~5x for output. If code uses opus, multiply base estimate by 5.", "codePatterns": ["opus", "claude-opus"] },
+    { "id": "long_context", "name": "Long context (>100K tokens)", "factor": 2, "description": "Long conversations or document analysis can easily consume 100K+ input tokens per call", "codePatterns": ["max_tokens.*[5-9]\\d{3,}", "maxTokens.*[5-9]\\d{3,}"] }
+  ],
+  "typicalDevUsage": {
+    "callsPerDevHour": 5,
+    "unitsPerCall": 2000,
+    "unitName": "tokens"
+  }
+}

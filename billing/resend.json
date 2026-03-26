@@ -1,0 +1,49 @@
+{
+  "$schema": "./billing.schema.json",
+  "serviceId": "resend",
+  "name": "Resend",
+  "lastVerified": "2026-03-25",
+  "pricingUrl": "https://resend.com/pricing",
+  "notes": "Resend charges per email sent. Free tier includes 100 emails/day (3000/mo). Pro plan is $20/mo with 50K emails included. Overage is $0.90 per 1000 emails. Transactional email only — no marketing automation.",
+  "billingDimensions": [
+    {
+      "id": "emails",
+      "name": "Emails sent",
+      "unit": "email",
+      "ratePerUnit": 0.90,
+      "ratePer": 1000,
+      "variants": [
+        { "id": "standard", "name": "Standard email", "ratePerUnit": 0.90, "ratePer": 1000, "codePatterns": ["resend", "emails\\.send", "@resend"], "isDefault": true }
+      ]
+    }
+  ],
+  "plans": [
+    {
+      "id": "free",
+      "name": "Free (100/day, 3000/mo)",
+      "monthlyBase": 0,
+      "included": { "emails": 3000 },
+      "hardCap": true,
+      "isDefault": true
+    },
+    {
+      "id": "pro",
+      "name": "Pro ($20/mo, 50K emails)",
+      "monthlyBase": 20,
+      "included": { "emails": 50000 },
+      "overageRates": { "emails": 0.90 }
+    },
+    {
+      "id": "scale",
+      "name": "Scale ($90/mo, 100K emails)",
+      "monthlyBase": 90,
+      "included": { "emails": 100000 },
+      "overageRates": { "emails": 0.90 }
+    }
+  ],
+  "typicalDevUsage": {
+    "callsPerDevHour": 2,
+    "unitsPerCall": 1,
+    "unitName": "emails"
+  }
+}

@@ -6,7 +6,7 @@ describe("plan tiers in registry", () => {
     clearRegistryCache();
   });
 
-  it("all 14 services have plan tiers defined", () => {
+  it("all 12 services have plan tiers defined", () => {
     const serviceIds = [
       "anthropic",
       "openai",
@@ -14,14 +14,12 @@ describe("plan tiers in registry", () => {
       "voyage-ai",
       "vercel",
       "supabase",
-      "stripe",
       "scrapfly",
       "browserbase",
       "upstash",
       "resend",
       "inngest",
       "posthog",
-      "aws",
     ];
 
     for (const id of serviceIds) {
@@ -46,14 +44,12 @@ describe("plan tiers in registry", () => {
       "voyage-ai",
       "vercel",
       "supabase",
-      "stripe",
       "scrapfly",
       "browserbase",
       "upstash",
       "resend",
       "inngest",
       "posthog",
-      "aws",
     ];
 
     for (const id of serviceIds) {
@@ -113,14 +109,12 @@ describe("plan tiers in registry", () => {
       "voyage-ai",
       "vercel",
       "supabase",
-      "stripe",
       "scrapfly",
       "browserbase",
       "upstash",
       "resend",
       "inngest",
       "posthog",
-      "aws",
     ];
 
     for (const id of serviceIds) {

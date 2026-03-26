@@ -1,0 +1,213 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://burnwatch.dev/schemas/billing-manifest.json",
+  "title": "Burnwatch Billing Manifest",
+  "description": "Describes how a service charges, what's included in each plan, and what overage rates apply. Community contributors: add a new service by creating a <service-id>.json file in this directory following this schema.",
+  "type": "object",
+  "required": ["$schema", "serviceId", "name", "lastVerified", "billingDimensions", "plans"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Path to this schema file"
+    },
+    "serviceId": {
+      "type": "string",
+      "description": "Must match the service ID in registry.json"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable service name"
+    },
+    "lastVerified": {
+      "type": "string",
+      "format": "date",
+      "description": "When this pricing data was last verified against the service's pricing page (YYYY-MM-DD)"
+    },
+    "pricingUrl": {
+      "type": "string",
+      "format": "uri",
+      "description": "URL to the service's pricing page for verification"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Freeform notes about this service's billing quirks"
+    },
+    "billingDimensions": {
+      "type": "array",
+      "description": "Each dimension is a separate axis the service charges on (e.g., input tokens, output tokens, storage, bandwidth). Most services have 1-3 dimensions.",
+      "items": {
+        "$ref": "#/$defs/BillingDimension"
+      },
+      "minItems": 1
+    },
+    "plans": {
+      "type": "array",
+      "description": "Available plan tiers. Each plan specifies what's included and any overrides to default rates.",
+      "items": {
+        "$ref": "#/$defs/Plan"
+      },
+      "minItems": 1
+    },
+    "costMultipliers": {
+      "type": "array",
+      "description": "Feature flags or usage patterns that multiply the base cost (e.g., anti-bot bypass on Scrapfly, long browser sessions on Browserbase). Used by cost-impact analysis.",
+      "items": {
+        "$ref": "#/$defs/CostMultiplier"
+      }
+    },
+    "typicalDevUsage": {
+      "type": "object",
+      "description": "Typical usage patterns during development. Helps cost-impact make better projections than the generic '50 dev runs/month' default.",
+      "properties": {
+        "callsPerDevHour": {
+          "type": "number",
+          "description": "How many API calls a developer typically makes per hour of active development"
+        },
+        "unitsPerCall": {
+          "type": "number",
+          "description": "Average units consumed per API call (e.g., ~1000 tokens per LLM call, 1 credit per scrape)"
+        },
+        "unitName": {
+          "type": "string",
+          "description": "What the unit is (tokens, credits, sessions, emails, etc.)"
+        }
+      },
+      "required": ["callsPerDevHour", "unitsPerCall", "unitName"]
+    }
+  },
+  "$defs": {
+    "BillingDimension": {
+      "type": "object",
+      "required": ["id", "name", "unit", "ratePerUnit"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Machine-readable ID (e.g., 'input_tokens', 'output_tokens', 'browser_hours', 'credits')"
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable name (e.g., 'Input tokens', 'Browser hours')"
+        },
+        "unit": {
+          "type": "string",
+          "description": "Unit name for display (e.g., 'token', 'credit', 'session', 'email', 'GB')"
+        },
+        "ratePerUnit": {
+          "type": "number",
+          "description": "Default cost per unit in USD. For token-based services, this is per-token (not per million). For 'per million' pricing, divide by 1,000,000."
+        },
+        "ratePer": {
+          "type": "number",
+          "default": 1,
+          "description": "If the rate is quoted 'per N units' (e.g., '$3 per 1M tokens'), set this to N (1000000) and ratePerUnit to the dollar amount ($3). The engine computes: cost = (units / ratePer) * ratePerUnit"
+        },
+        "variants": {
+          "type": "array",
+          "description": "If the rate varies by model, feature, or tier (e.g., Haiku vs Opus), list each variant here. The engine uses the variant matching the detected model in code.",
+          "items": {
+            "$ref": "#/$defs/DimensionVariant"
+          }
+        }
+      }
+    },
+    "DimensionVariant": {
+      "type": "object",
+      "required": ["id", "name", "ratePerUnit"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Machine-readable variant ID (e.g., 'haiku', 'sonnet', 'opus')"
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable name (e.g., 'Claude 3.5 Haiku')"
+        },
+        "ratePerUnit": {
+          "type": "number",
+          "description": "Rate for this variant in the same units as the parent dimension"
+        },
+        "ratePer": {
+          "type": "number",
+          "description": "Override ratePer for this variant"
+        },
+        "codePatterns": {
+          "type": "array",
+          "description": "Regex patterns that identify this variant in source code (e.g., 'claude-3-5-haiku', 'claude-3.5-haiku'). Used by cost-impact to pick the right rate.",
+          "items": { "type": "string" }
+        },
+        "isDefault": {
+          "type": "boolean",
+          "description": "Use this variant's rate when no specific model is detected in code"
+        }
+      }
+    },
+    "Plan": {
+      "type": "object",
+      "required": ["id", "name", "monthlyBase"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Machine-readable plan ID (e.g., 'free', 'pro', 'startup')"
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable plan name (e.g., 'Pro ($25/mo)'). Must match registry.json plan names."
+        },
+        "monthlyBase": {
+          "type": "number",
+          "description": "Fixed monthly cost in USD"
+        },
+        "included": {
+          "type": "object",
+          "description": "Units included in this plan before overages. Keys are billingDimension IDs, values are included amounts.",
+          "additionalProperties": { "type": "number" }
+        },
+        "overageRates": {
+          "type": "object",
+          "description": "Per-unit overage rates that override the default dimension rate. Keys are billingDimension IDs.",
+          "additionalProperties": { "type": "number" }
+        },
+        "hardCap": {
+          "type": "boolean",
+          "description": "If true, usage beyond plan limits is blocked rather than charged as overage"
+        },
+        "isDefault": {
+          "type": "boolean",
+          "description": "Whether this is the most common plan tier"
+        }
+      }
+    },
+    "CostMultiplier": {
+      "type": "object",
+      "required": ["id", "name", "factor", "description"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Machine-readable ID (e.g., 'antibot', 'js_render', 'long_session')"
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable name"
+        },
+        "factor": {
+          "type": "number",
+          "description": "Multiplier applied to base cost (e.g., 5 means 5x the base rate)"
+        },
+        "description": {
+          "type": "string",
+          "description": "Explains when and why this multiplier applies"
+        },
+        "codePatterns": {
+          "type": "array",
+          "description": "Regex patterns in source code that indicate this multiplier is active (e.g., 'antibot.*true', 'render_js.*true')",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

@@ -27,7 +27,7 @@ describe("buildSnapshot", () => {
   });
 
   it("handles no budget gracefully", () => {
-    const snap = buildSnapshot("aws", "blind", 0);
+    const snap = buildSnapshot("firebase", "blind", 0);
     expect(snap.budget).toBeUndefined();
     expect(snap.status).toBe("unknown");
   });
@@ -56,7 +56,7 @@ describe("buildBrief", () => {
 
   it("generates blind service alerts", () => {
     const snapshots = [
-      buildSnapshot("aws", "blind", 0),
+      buildSnapshot("firebase", "blind", 0),
     ];
     const brief = buildBrief("test-project", snapshots, 1);
     const blindAlert = brief.alerts.find((a) => a.type === "blind_service");

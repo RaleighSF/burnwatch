@@ -1,0 +1,70 @@
+{
+  "$schema": "./billing.schema.json",
+  "serviceId": "openai",
+  "name": "OpenAI",
+  "lastVerified": "2026-03-25",
+  "pricingUrl": "https://openai.com/api/pricing/",
+  "notes": "Token pricing varies by model. GPT-4o-mini is extremely cheap. Image generation (DALL-E) is per-image, not per-token. Embedding models are much cheaper than completion models.",
+  "billingDimensions": [
+    {
+      "id": "input_tokens",
+      "name": "Input tokens",
+      "unit": "token",
+      "ratePerUnit": 2.50,
+      "ratePer": 1000000,
+      "variants": [
+        { "id": "gpt4o_mini", "name": "GPT-4o mini", "ratePerUnit": 0.15, "ratePer": 1000000, "codePatterns": ["gpt-4o-mini", "gpt4o-mini"], "isDefault": false },
+        { "id": "gpt4o", "name": "GPT-4o", "ratePerUnit": 2.50, "ratePer": 1000000, "codePatterns": ["gpt-4o(?!-mini)", "gpt4o(?!-mini)"], "isDefault": true },
+        { "id": "o1_mini", "name": "o1-mini", "ratePerUnit": 3.00, "ratePer": 1000000, "codePatterns": ["o1-mini"] },
+        { "id": "o1", "name": "o1", "ratePerUnit": 15.00, "ratePer": 1000000, "codePatterns": ["(?<![\\w-])o1(?!-mini)"] },
+        { "id": "gpt4_turbo", "name": "GPT-4 Turbo", "ratePerUnit": 10.00, "ratePer": 1000000, "codePatterns": ["gpt-4-turbo", "gpt-4-1106"] }
+      ]
+    },
+    {
+      "id": "output_tokens",
+      "name": "Output tokens",
+      "unit": "token",
+      "ratePerUnit": 10.00,
+      "ratePer": 1000000,
+      "variants": [
+        { "id": "gpt4o_mini", "name": "GPT-4o mini", "ratePerUnit": 0.60, "ratePer": 1000000, "codePatterns": ["gpt-4o-mini"], "isDefault": false },
+        { "id": "gpt4o", "name": "GPT-4o", "ratePerUnit": 10.00, "ratePer": 1000000, "codePatterns": ["gpt-4o(?!-mini)"], "isDefault": true },
+        { "id": "o1_mini", "name": "o1-mini", "ratePerUnit": 12.00, "ratePer": 1000000, "codePatterns": ["o1-mini"] },
+        { "id": "o1", "name": "o1", "ratePerUnit": 60.00, "ratePer": 1000000, "codePatterns": ["(?<![\\w-])o1(?!-mini)"] }
+      ]
+    },
+    {
+      "id": "embedding_tokens",
+      "name": "Embedding tokens",
+      "unit": "token",
+      "ratePerUnit": 0.02,
+      "ratePer": 1000000,
+      "variants": [
+        { "id": "small", "name": "text-embedding-3-small", "ratePerUnit": 0.02, "ratePer": 1000000, "codePatterns": ["embedding-3-small", "text-embedding-3-small"], "isDefault": true },
+        { "id": "large", "name": "text-embedding-3-large", "ratePerUnit": 0.13, "ratePer": 1000000, "codePatterns": ["embedding-3-large", "text-embedding-3-large"] }
+      ]
+    },
+    {
+      "id": "images",
+      "name": "Image generation",
+      "unit": "image",
+      "ratePerUnit": 0.04,
+      "ratePer": 1,
+      "variants": [
+        { "id": "dalle3_standard", "name": "DALL-E 3 Standard 1024x1024", "ratePerUnit": 0.04, "ratePer": 1, "codePatterns": ["dall-e-3", "dalle-3"], "isDefault": true },
+        { "id": "dalle3_hd", "name": "DALL-E 3 HD 1024x1024", "ratePerUnit": 0.08, "ratePer": 1, "codePatterns": ["quality.*hd", "hd.*quality"] }
+      ]
+    }
+  ],
+  "plans": [
+    { "id": "api_usage", "name": "API Usage", "monthlyBase": 0, "isDefault": true },
+    { "id": "plus", "name": "ChatGPT Plus ($20/mo)", "monthlyBase": 20 },
+    { "id": "pro", "name": "ChatGPT Pro ($200/mo)", "monthlyBase": 200 },
+    { "id": "team", "name": "ChatGPT Team ($25/user/mo)", "monthlyBase": 25 }
+  ],
+  "typicalDevUsage": {
+    "callsPerDevHour": 8,
+    "unitsPerCall": 1500,
+    "unitName": "tokens"
+  }
+}

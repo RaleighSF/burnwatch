@@ -1,0 +1,68 @@
+{
+  "$schema": "./billing.schema.json",
+  "serviceId": "browserbase",
+  "name": "Browserbase",
+  "lastVerified": "2026-03-25",
+  "pricingUrl": "https://www.browserbase.com/pricing",
+  "notes": "Browserbase charges per browser-hour (metered by the minute, first minute rounded up), NOT per session. Proxy bandwidth is a separate billing axis at $10-12/GB. Concurrent session limits and session duration caps vary by plan.",
+  "billingDimensions": [
+    {
+      "id": "browser_hours",
+      "name": "Browser hours",
+      "unit": "hour",
+      "ratePerUnit": 0.10,
+      "ratePer": 1,
+      "variants": [
+        { "id": "standard", "name": "Standard browser", "ratePerUnit": 0.10, "ratePer": 1, "codePatterns": ["createSession", "sessions.create"], "isDefault": true }
+      ]
+    },
+    {
+      "id": "proxy_bandwidth",
+      "name": "Proxy bandwidth",
+      "unit": "GB",
+      "ratePerUnit": 10.00,
+      "ratePer": 1,
+      "variants": [
+        { "id": "standard", "name": "Standard proxy", "ratePerUnit": 10.00, "ratePer": 1, "codePatterns": ["proxy", "proxies"], "isDefault": true }
+      ]
+    }
+  ],
+  "plans": [
+    {
+      "id": "free",
+      "name": "Free (1 browser-hour)",
+      "monthlyBase": 0,
+      "included": { "browser_hours": 1 },
+      "hardCap": true,
+      "isDefault": true
+    },
+    {
+      "id": "developer",
+      "name": "Developer ($20/mo)",
+      "monthlyBase": 20,
+      "included": { "browser_hours": 100, "proxy_bandwidth": 1 },
+      "overageRates": { "browser_hours": 0.12, "proxy_bandwidth": 12.00 }
+    },
+    {
+      "id": "startup",
+      "name": "Startup ($99/mo)",
+      "monthlyBase": 99,
+      "included": { "browser_hours": 500, "proxy_bandwidth": 5 },
+      "overageRates": { "browser_hours": 0.10, "proxy_bandwidth": 10.00 }
+    },
+    {
+      "id": "scale",
+      "name": "Scale (custom)",
+      "monthlyBase": 0
+    }
+  ],
+  "costMultipliers": [
+    { "id": "long_session", "name": "Long-running sessions", "factor": 10, "description": "A scraping job that keeps a browser open for 10 minutes uses 10x the hours of a quick 1-minute page load", "codePatterns": ["keepAlive", "timeout.*[3-9]\\d{4,}", "waitForTimeout"] },
+    { "id": "stealth_mode", "name": "Stealth/anti-detection", "factor": 1.5, "description": "Stealth mode sessions may run longer due to human-like delays", "codePatterns": ["stealth", "antiDetection", "humanDelay"] }
+  ],
+  "typicalDevUsage": {
+    "callsPerDevHour": 3,
+    "unitsPerCall": 0.05,
+    "unitName": "browser-hours"
+  }
+}

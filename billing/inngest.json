@@ -1,0 +1,45 @@
+{
+  "$schema": "./billing.schema.json",
+  "serviceId": "inngest",
+  "name": "Inngest",
+  "lastVerified": "2026-03-25",
+  "pricingUrl": "https://www.inngest.com/pricing",
+  "notes": "Inngest bills per 'execution' — each function run AND each step within that run count as separate executions. A function with 1 trigger + 3 steps = 4 executions. Free tier includes 50K executions/mo. Pro is $75/mo with 1M executions included. Tiered overage pricing applies beyond plan limits.",
+  "billingDimensions": [
+    {
+      "id": "executions",
+      "name": "Executions (runs + steps)",
+      "unit": "execution",
+      "ratePerUnit": 0.05,
+      "ratePer": 1000,
+      "variants": [
+        { "id": "standard", "name": "Standard execution", "ratePerUnit": 0.05, "ratePer": 1000, "codePatterns": ["inngest\\.send", "createFunction", "inngest"], "isDefault": true }
+      ]
+    }
+  ],
+  "plans": [
+    {
+      "id": "free",
+      "name": "Free (50K executions/mo)",
+      "monthlyBase": 0,
+      "included": { "executions": 50000 },
+      "hardCap": true,
+      "isDefault": true
+    },
+    {
+      "id": "pro",
+      "name": "Pro ($75/mo)",
+      "monthlyBase": 75,
+      "included": { "executions": 1000000 },
+      "overageRates": { "executions": 0.05 }
+    }
+  ],
+  "costMultipliers": [
+    { "id": "multi_step", "name": "Multi-step functions", "factor": 4, "description": "Each step in a function counts as a separate execution. A 3-step function costs 4x (1 run + 3 steps) a single-step function.", "codePatterns": ["step\\.run", "step\\.sleep", "step\\.waitForEvent", "step\\.invoke"] }
+  ],
+  "typicalDevUsage": {
+    "callsPerDevHour": 5,
+    "unitsPerCall": 4,
+    "unitName": "executions"
+  }
+}

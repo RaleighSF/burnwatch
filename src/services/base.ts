@@ -8,6 +8,14 @@ export interface BillingResult {
   tier: ConfidenceTier;
   raw?: Record<string, unknown>;
   error?: string;
+  /** For credit-pool services: units consumed this period */
+  unitsUsed?: number;
+  /** For credit-pool services: total units in plan allowance */
+  unitsTotal?: number;
+  /** For credit-pool services: unit name (e.g., "credits") */
+  unitName?: string;
+  /** Whether this service is on a flat-fee plan (spend == budget is expected) */
+  isFlatPlan?: boolean;
 }
 
 /**

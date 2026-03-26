@@ -1,5 +1,5 @@
 /**
- * burnwatch — Passive cost memory for vibe coding
+ * burnwatch — Passive cost memory for AI-assisted development
  *
  * Detects paid services, tracks spend, injects budget context
  * into your AI coding sessions.
@@ -34,6 +34,8 @@ export {
   detectServices,
   detectMentions,
   detectInFileChange,
+  findEnvFiles,
+  parseEnvKeys,
 } from "./detection/detector.js";
 
 export {
