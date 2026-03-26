@@ -456,6 +456,36 @@ export async function runInteractiveInit(
         tracked.budget = defaultBudget;
       }
 
+      // If the budget matches a different plan's cost, suggest switching
+      if (tracked.budget > 0 && tracked.budget !== (chosen.monthlyBase ?? 0)) {
+        const betterPlan = plans.find(
+          (p) =>
+            p !== chosen &&
+            p.type !== "exclude" &&
+            p.monthlyBase === tracked.budget,
+        );
+        if (betterPlan) {
+          const switchAnswer = await ask(
+            rl,
+            `  Budget matches "${betterPlan.name}" — switch to that plan? [Y/n]: `,
+          );
+          if (!switchAnswer || switchAnswer.toLowerCase() !== "n") {
+            chosen = betterPlan;
+            tracked.planName = betterPlan.name;
+            if (betterPlan.type === "flat" && betterPlan.monthlyBase !== undefined) {
+              tracked.planCost = betterPlan.monthlyBase;
+            }
+            if (betterPlan.includedUnits !== undefined && betterPlan.unitName) {
+              tracked.allowance = {
+                included: betterPlan.includedUnits,
+                unitName: betterPlan.unitName,
+              };
+            }
+            console.log(`  -> Switched to ${betterPlan.name}`);
+          }
+        }
+      }
+
       services[service.id] = tracked;
 
       const tierLabel = tracked.hasApiKey

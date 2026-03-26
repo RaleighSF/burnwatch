@@ -168,6 +168,8 @@ export interface SpendSnapshot {
   timestamp: string;
   /** Whether this is a flat-fee plan (spend == budget is expected, not alarming) */
   isFlatPlan?: boolean;
+  /** Whether the spend figure is actually a plan cost, not measured usage */
+  isPlanCost?: boolean;
   /** For credit-pool services: unit consumption tracking */
   allowance?: {
     /** Units consumed this period */
@@ -188,6 +190,10 @@ export interface SpendBrief {
   period: string;
   services: SpendSnapshot[];
   totalSpend: number;
+  /** Confirmed spend from LIVE billing APIs */
+  liveSpend: number;
+  /** Sum of flat plan costs (CALC tier, not actual usage) */
+  planCostTotal: number;
   totalIsEstimate: boolean;
   estimateMargin: number;
   untrackedCount: number;

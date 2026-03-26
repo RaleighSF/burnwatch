@@ -71,6 +71,28 @@ describe("buildBrief", () => {
     expect(brief.totalIsEstimate).toBe(true);
     expect(brief.estimateMargin).toBeGreaterThan(0);
   });
+
+  it("separates live spend from plan costs in totals", () => {
+    const snapshots = [
+      buildSnapshot("anthropic", "live", 47.2, 100),
+      buildSnapshot("vercel", "calc", 20, 20, undefined, undefined, true),
+      buildSnapshot("supabase", "calc", 25, 25, undefined, undefined, true),
+    ];
+    const brief = buildBrief("test-project", snapshots, 0);
+    expect(brief.liveSpend).toBeCloseTo(47.2);
+    expect(brief.planCostTotal).toBeCloseTo(45);
+    expect(brief.totalSpend).toBeCloseTo(92.2);
+  });
+
+  it("marks CALC flat-plan snapshots as isPlanCost", () => {
+    const snap = buildSnapshot("vercel", "calc", 20, 20, undefined, undefined, true);
+    expect(snap.isPlanCost).toBe(true);
+  });
+
+  it("does not mark LIVE snapshots as isPlanCost", () => {
+    const snap = buildSnapshot("anthropic", "live", 47.2, 100);
+    expect(snap.isPlanCost).toBe(false);
+  });
 });
 
 describe("formatBrief", () => {
@@ -92,6 +114,31 @@ describe("formatBrief", () => {
   });
 });
 
+describe("formatBrief CALC display", () => {
+  it("shows plan cost as $XX/mo for CALC flat services", () => {
+    const snapshots = [
+      buildSnapshot("vercel", "calc", 20, 20, undefined, undefined, true),
+    ];
+    const brief = buildBrief("test-project", snapshots, 0);
+    const output = formatBrief(brief);
+
+    expect(output).toContain("$20/mo");
+    expect(output).not.toContain("$20.00");
+  });
+
+  it("splits total into Spend and Plans", () => {
+    const snapshots = [
+      buildSnapshot("anthropic", "live", 47.2, 100),
+      buildSnapshot("vercel", "calc", 20, 20, undefined, undefined, true),
+    ];
+    const brief = buildBrief("test-project", snapshots, 0);
+    const output = formatBrief(brief);
+
+    expect(output).toContain("Spend: $47.20");
+    expect(output).toContain("Plans: $20/mo");
+  });
+});
+
 describe("formatSpendCard", () => {
   it("produces a single-service spend card", () => {
     const snap = buildSnapshot("scrapfly", "live", 127, 50);
@@ -101,5 +148,13 @@ describe("formatSpendCard", () => {
     expect(card).toContain("scrapfly");
     expect(card).toContain("$127.00");
     expect(card).toContain("Budget: $50");
+  });
+
+  it("labels CALC flat-plan spend as Plan cost", () => {
+    const snap = buildSnapshot("vercel", "calc", 20, 20, undefined, undefined, true);
+    const card = formatSpendCard(snap);
+
+    expect(card).toContain("Plan cost: $20/mo");
+    expect(card).not.toContain("Spend: $20");
   });
 });

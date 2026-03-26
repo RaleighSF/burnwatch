@@ -229,7 +229,7 @@
       "plans": [
         { "name": "Free (1 browser-hour)", "type": "flat", "monthlyBase": 0, "default": true },
         { "name": "Developer ($20/mo)", "type": "flat", "monthlyBase": 20 },
-        { "name": "Startup ($99/mo)", "type": "flat", "monthlyBase": 99 },
+        { "name": "Startup ($150/mo)", "type": "flat", "monthlyBase": 150 },
         { "name": "Scale (custom)", "type": "usage", "requiresKey": false },
         { "name": "Don't track for this project", "type": "exclude" }
       ],

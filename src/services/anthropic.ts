@@ -3,24 +3,33 @@ import { fetchJson } from "./base.js";
 
 /**
  * Anthropic billing connector.
- * Uses the /v1/organizations/usage endpoint.
- * Requires an admin API key.
+ * Uses the Admin API cost_report endpoint for USD spend data.
+ * Requires an Admin API key (sk-ant-admin-*).
+ *
+ * Docs: https://platform.claude.com/docs/en/build-with-claude/usage-cost-api
  */
 export const anthropicConnector: BillingConnector = {
   serviceId: "anthropic",
 
   async fetchSpend(apiKey: string): Promise<BillingResult> {
-    // Get current month date range
+    // Get current month date range in RFC 3339 format
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const startDate = startOfMonth.toISOString().split("T")[0]!;
-    const endDate = now.toISOString().split("T")[0]!;
+    const startingAt = startOfMonth.toISOString();
+    const endingAt = now.toISOString();
 
-    const url = `https://api.anthropic.com/v1/organizations/usage?start_date=${startDate}&end_date=${endDate}`;
+    const url = `https://api.anthropic.com/v1/organizations/cost_report?starting_at=${encodeURIComponent(startingAt)}&ending_at=${encodeURIComponent(endingAt)}&bucket_width=1m`;
 
     const result = await fetchJson<{
-      data?: Array<{ total_cost_usd?: number; spend?: number }>;
-      total_cost_usd?: number;
+      data?: Array<{
+        starting_at?: string;
+        ending_at?: string;
+        results?: Array<{
+          cost_usd?: number;
+          model?: string;
+        }>;
+      }>;
+      has_more?: boolean;
     }>(url, {
       headers: {
         "x-api-key": apiKey,
@@ -34,19 +43,20 @@ export const anthropicConnector: BillingConnector = {
         spend: 0,
         isEstimate: true,
         tier: "est",
-        error: result.error ?? "Failed to fetch Anthropic usage",
+        error: result.error ?? "Failed to fetch Anthropic cost report",
       };
     }
 
-    // Sum up usage across the period
+    // Sum cost_usd across all time buckets and models
     let totalSpend = 0;
-    if (result.data.total_cost_usd !== undefined) {
-      totalSpend = result.data.total_cost_usd;
-    } else if (result.data.data) {
-      totalSpend = result.data.data.reduce(
-        (sum, entry) => sum + (entry.total_cost_usd ?? entry.spend ?? 0),
-        0,
-      );
+    if (result.data.data) {
+      for (const bucket of result.data.data) {
+        if (bucket.results) {
+          for (const entry of bucket.results) {
+            totalSpend += entry.cost_usd ?? 0;
+          }
+        }
+      }
     }
 
     return {

@@ -24,12 +24,19 @@ beforeEach(() => {
 });
 
 describe("anthropicConnector", () => {
-  it("returns LIVE spend from usage endpoint (total_cost_usd)", async () => {
+  it("returns LIVE spend from cost_report endpoint", async () => {
     mockFetchJson.mockResolvedValueOnce({
       ok: true,
       status: 200,
       data: {
-        total_cost_usd: 47.23,
+        data: [
+          {
+            results: [
+              { cost_usd: 30.0, model: "claude-sonnet-4-5-20250514" },
+              { cost_usd: 17.23, model: "claude-haiku-3-5-20241022" },
+            ],
+          },
+        ],
       },
     });
 
@@ -40,14 +47,14 @@ describe("anthropicConnector", () => {
     expect(result.isEstimate).toBe(false);
   });
 
-  it("returns LIVE spend from data array", async () => {
+  it("returns LIVE spend from multiple time buckets", async () => {
     mockFetchJson.mockResolvedValueOnce({
       ok: true,
       status: 200,
       data: {
         data: [
-          { total_cost_usd: 25.0 },
-          { total_cost_usd: 12.5 },
+          { results: [{ cost_usd: 25.0, model: "claude-sonnet-4-5-20250514" }] },
+          { results: [{ cost_usd: 12.5, model: "claude-sonnet-4-5-20250514" }] },
         ],
       },
     });

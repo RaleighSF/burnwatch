@@ -90,6 +90,7 @@ async function main(): Promise<void> {
         config.services[r.serviceId]?.budget,
         undefined,
         r.isEstimate,
+        r.isFlatPlan,
       );
     });
 

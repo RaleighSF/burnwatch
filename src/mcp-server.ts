@@ -107,6 +107,7 @@ server.tool(
         config.services[r.serviceId]?.budget,
         undefined,
         r.isEstimate,
+        r.isFlatPlan,
       ),
     );
     const blindCount = snapshots.filter((s) => s.tier === "blind").length;

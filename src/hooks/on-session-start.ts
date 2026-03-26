@@ -161,7 +161,7 @@ async function main(): Promise<void> {
           : tracked?.allowance
             ? { used: 0, included: tracked.allowance.included, unitName: tracked.allowance.unitName }
             : undefined;
-        return buildSnapshot(r.serviceId, r.tier, r.spend, tracked?.budget, allowanceData, r.isEstimate);
+        return buildSnapshot(r.serviceId, r.tier, r.spend, tracked?.budget, allowanceData, r.isEstimate, r.isFlatPlan);
       });
       const blindCount = snapshots.filter((s) => s.tier === "blind").length;
       const brief = buildBrief(config.projectName, snapshots, blindCount);

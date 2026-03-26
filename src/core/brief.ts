@@ -16,11 +16,7 @@ export function formatBriefMarkdown(brief: SpendBrief): string {
   lines.push("|---------|-------|------|--------|------|");
 
   for (const svc of brief.services.filter(s => s.tier !== "excluded")) {
-    const spendStr = svc.tier === "blind" && svc.spend === 0
-      ? "—"
-      : svc.isEstimate
-        ? `~$${svc.spend.toFixed(2)}`
-        : `$${svc.spend.toFixed(2)}`;
+    const spendStr = formatSpendValue(svc);
     const badge = CONFIDENCE_BADGES[svc.tier];
     const budgetStr = svc.budget ? `$${svc.budget}` : "—";
     const leftStr = formatLeft(svc);
@@ -35,17 +31,8 @@ export function formatBriefMarkdown(brief: SpendBrief): string {
     }
   }
 
-  const totalStr = brief.totalIsEstimate
-    ? `~$${brief.totalSpend.toFixed(2)}`
-    : `$${brief.totalSpend.toFixed(2)}`;
-  const marginStr = brief.estimateMargin > 0
-    ? ` (±$${brief.estimateMargin.toFixed(0)})`
-    : "";
-  const blindStr = brief.untrackedCount > 0
-    ? ` | No billing data: ${brief.untrackedCount}`
-    : "";
-
-  lines.push(`\n**Total: ${totalStr}${marginStr}${blindStr}**`);
+  lines.push("");
+  lines.push(formatTotalLine(brief));
 
   for (const alert of brief.alerts) {
     const icon = alert.severity === "critical" ? "🚨" : "⚠️";
@@ -75,11 +62,7 @@ export function formatBrief(brief: SpendBrief): string {
 
   // Service rows (skip excluded services)
   for (const svc of brief.services.filter(s => s.tier !== "excluded")) {
-    const spendStr = svc.tier === "blind" && svc.spend === 0
-      ? "—"
-      : svc.isEstimate
-        ? `~$${svc.spend.toFixed(2)}`
-        : `$${svc.spend.toFixed(2)}`;
+    const spendStr = formatSpendValue(svc);
     const badge = CONFIDENCE_BADGES[svc.tier];
     const budgetStr = svc.budget ? `$${svc.budget}` : "—";
     const leftStr = formatLeft(svc);
@@ -97,9 +80,19 @@ export function formatBrief(brief: SpendBrief): string {
 
   // Footer
   lines.push(`╠${hr}`);
-  const totalStr = brief.totalIsEstimate
-    ? `~$${brief.totalSpend.toFixed(2)}`
-    : `$${brief.totalSpend.toFixed(2)}`;
+
+  // Split total into live spend vs plan costs
+  const parts: string[] = [];
+  if (brief.liveSpend > 0) {
+    parts.push(`Spend: $${brief.liveSpend.toFixed(2)}`);
+  }
+  if (brief.planCostTotal > 0) {
+    parts.push(`Plans: $${brief.planCostTotal.toFixed(0)}/mo`);
+  }
+  if (parts.length === 0) {
+    parts.push(`$${brief.totalSpend.toFixed(2)}`);
+  }
+
   const marginStr = brief.estimateMargin > 0
     ? `  Est margin: ±$${brief.estimateMargin.toFixed(0)}`
     : "";
@@ -108,7 +101,7 @@ export function formatBrief(brief: SpendBrief): string {
       ? `No billing data: ${brief.untrackedCount} ⚠️`
       : `All tracked ✅`;
 
-  lines.push(`║  TOTAL: ${totalStr}   ${untrackedStr}${marginStr}`);
+  lines.push(`║  ${parts.join("  |  ")}   ${untrackedStr}${marginStr}`);
 
   for (const alert of brief.alerts) {
     const icon = alert.severity === "critical" ? "🚨" : "⚠️";
@@ -125,9 +118,8 @@ export function formatBrief(brief: SpendBrief): string {
  */
 export function formatSpendCard(snapshot: SpendSnapshot): string {
   const badge = CONFIDENCE_BADGES[snapshot.tier];
-  const spendStr = snapshot.isEstimate
-    ? `~$${snapshot.spend.toFixed(2)}`
-    : `$${snapshot.spend.toFixed(2)}`;
+  const spendStr = formatSpendValue(snapshot);
+  const spendLabel = snapshot.isPlanCost ? "Plan cost" : "Spend";
   const budgetStr = snapshot.budget
     ? `Budget: $${snapshot.budget}`
     : "No budget set";
@@ -135,7 +127,7 @@ export function formatSpendCard(snapshot: SpendSnapshot): string {
 
   const lines = [
     `[BURNWATCH] ${snapshot.serviceId} — current period`,
-    `  Spend: ${spendStr}  |  ${budgetStr}  |  ${statusStr}`,
+    `  ${spendLabel}: ${spendStr}  |  ${budgetStr}  |  ${statusStr}`,
     `  Confidence: ${badge}`,
   ];
 
@@ -163,12 +155,19 @@ export function buildBrief(
   });
 
   let totalSpend = 0;
+  let liveSpend = 0;
+  let planCostTotal = 0;
   let hasEstimates = false;
   let estimateMargin = 0;
   const alerts: SpendAlert[] = [];
 
   for (const snap of snapshots) {
     totalSpend += snap.spend;
+    if (snap.isPlanCost) {
+      planCostTotal += snap.spend;
+    } else if (snap.tier === "live") {
+      liveSpend += snap.spend;
+    }
     if (snap.isEstimate) {
       hasEstimates = true;
       estimateMargin += snap.spend * 0.15; // ±15% margin on estimates
@@ -209,6 +208,8 @@ export function buildBrief(
     period,
     services: snapshots,
     totalSpend,
+    liveSpend,
+    planCostTotal,
     totalIsEstimate: hasEstimates,
     estimateMargin,
     untrackedCount: blindCount,
@@ -226,6 +227,42 @@ function formatRow(
   left: string,
 ): string {
   return `║  ${service.padEnd(14)} ${spend.padEnd(11)} ${conf.padEnd(9)} ${budget.padEnd(7)} ${left}`;
+}
+
+/**
+ * Format the spend value for a service row.
+ * LIVE: exact spend. CALC flat: "$XX/mo" to make clear it's plan cost.
+ * EST: "~$XX". BLIND: "—".
+ */
+function formatSpendValue(svc: SpendSnapshot): string {
+  if (svc.tier === "blind" && svc.spend === 0) return "—";
+  if (svc.isPlanCost) return `$${svc.spend.toFixed(0)}/mo`;
+  if (svc.isEstimate) return `~$${svc.spend.toFixed(2)}`;
+  return `$${svc.spend.toFixed(2)}`;
+}
+
+/**
+ * Format the total line for markdown brief.
+ * Splits live spend from plan cost commitments.
+ */
+function formatTotalLine(brief: SpendBrief): string {
+  const parts: string[] = [];
+  if (brief.liveSpend > 0) {
+    parts.push(`**Spend: $${brief.liveSpend.toFixed(2)}**`);
+  }
+  if (brief.planCostTotal > 0) {
+    parts.push(`**Plans: $${brief.planCostTotal.toFixed(0)}/mo**`);
+  }
+  if (parts.length === 0) {
+    parts.push(`**Total: $${brief.totalSpend.toFixed(2)}**`);
+  }
+  const marginStr = brief.estimateMargin > 0
+    ? ` (±$${brief.estimateMargin.toFixed(0)})`
+    : "";
+  const blindStr = brief.untrackedCount > 0
+    ? ` | No billing data: ${brief.untrackedCount}`
+    : "";
+  return `${parts.join("  |  ")}${marginStr}${blindStr}`;
 }
 
 function formatLeft(snap: SpendSnapshot): string {
@@ -255,6 +292,7 @@ export function buildSnapshot(
   if (budget !== undefined && (isNaN(budget) || !isFinite(budget))) budget = undefined;
 
   const isEstimate = isEstimateOverride ?? (tier === "est" || tier === "calc");
+  const isPlanCost = tier === "calc" && isFlatPlan === true;
   const budgetPercent = budget && budget > 0 ? (spend / budget) * 100 : undefined;
 
   let status: SpendSnapshot["status"] = "unknown";
@@ -303,6 +341,7 @@ export function buildSnapshot(
     serviceId,
     spend,
     isEstimate,
+    isPlanCost,
     tier,
     budget,
     budgetPercent,
